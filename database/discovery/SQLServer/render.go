@@ -1,6 +1,7 @@
 package sqlserver
 
 import (
+	sqlserver_models "blueprint/database/discovery/SQLServer/models"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,17 +10,17 @@ import (
 func GenerateCreateTable(
 	schemaName string,
 	tableName string,
-	columns []Column,
-	defaultConstraints []DefaultConstraint,
-	primaryKeys []PrimaryKeyColumn,
-	uniqueConstraints []UniqueConstraintColumn,
-	checkConstraints []CheckConstraint,
+	columns []sqlserver_models.Column,
+	defaultConstraints []sqlserver_models.DefaultConstraint,
+	primaryKeys []sqlserver_models.PrimaryKeyColumn,
+	uniqueConstraints []sqlserver_models.UniqueConstraintColumn,
+	checkConstraints []sqlserver_models.CheckConstraint,
 ) string {
 	if schemaName == "" {
 		schemaName = "dbo"
 	}
 
-	defaultConstraintByColumnID := make(map[int]DefaultConstraint, len(defaultConstraints))
+	defaultConstraintByColumnID := make(map[int]sqlserver_models.DefaultConstraint, len(defaultConstraints))
 	for _, constraint := range defaultConstraints {
 		defaultConstraintByColumnID[constraint.ColumnID] = constraint
 	}
@@ -49,7 +50,7 @@ func GenerateCreateTable(
 	)
 }
 
-func GenerateCreateIndexes(schemaName string, tableName string, indexes []IndexColumn) string {
+func GenerateCreateIndexes(schemaName string, tableName string, indexes []sqlserver_models.IndexColumn) string {
 	if schemaName == "" {
 		schemaName = "dbo"
 	}
@@ -58,10 +59,7 @@ func GenerateCreateIndexes(schemaName string, tableName string, indexes []IndexC
 	return strings.Join(indexDefinitions, "\n\n")
 }
 
-func GenerateForeignKeys(schemaName string, tableName string, foreignKeys []ForeignKeyColumn) []string {
-	if schemaName == "" {
-		schemaName = "dbo"
-	}
+func GenerateForeignKeys(foreignKeys []sqlserver_models.ForeignKeyColumn) []string {
 
 	groups := groupForeignKeys(foreignKeys)
 	definitions := make([]string, 0, len(groups))
@@ -76,9 +74,10 @@ func GenerateForeignKeys(schemaName string, tableName string, foreignKeys []Fore
 		}
 
 		definition := fmt.Sprintf(
-			"ALTER TABLE %s.%s\nADD FOREIGN KEY\n(\n%s\n)\nREFERENCES %s.%s\n(\n%s\n)\nON DELETE %s\nON UPDATE %s;",
-			quoteSqlServerIdentifier(schemaName),
-			quoteSqlServerIdentifier(tableName),
+			"ALTER TABLE %s.%s\nADD CONSTRAINT %s FOREIGN KEY\n(\n%s\n)\nREFERENCES %s.%s\n(\n%s\n)\nON DELETE %s\nON UPDATE %s;",
+			quoteSqlServerIdentifier(group.ParentSchema),
+			quoteSqlServerIdentifier(group.ParentTable),
+			quoteSqlServerIdentifier(group.ForeignKeyName),
 			strings.Join(localColumns, ",\n"),
 			quoteSqlServerIdentifier(group.ReferencedSchema),
 			quoteSqlServerIdentifier(group.ReferencedTable),
@@ -93,7 +92,7 @@ func GenerateForeignKeys(schemaName string, tableName string, foreignKeys []Fore
 	return definitions
 }
 
-func sqlServerColumnDefinitions(columns []Column, defaultConstraintByColumnID map[int]DefaultConstraint) []string {
+func sqlServerColumnDefinitions(columns []sqlserver_models.Column, defaultConstraintByColumnID map[int]sqlserver_models.DefaultConstraint) []string {
 	definitions := make([]string, 0, len(columns))
 	columnNameWidth := 0
 	for _, column := range columns {
@@ -155,7 +154,7 @@ func sqlServerColumnDefinitions(columns []Column, defaultConstraintByColumnID ma
 	return definitions
 }
 
-func sqlServerKeyDefinitions(primaryKeys []PrimaryKeyColumn, uniqueConstraints []UniqueConstraintColumn) []string {
+func sqlServerKeyDefinitions(primaryKeys []sqlserver_models.PrimaryKeyColumn, uniqueConstraints []sqlserver_models.UniqueConstraintColumn) []string {
 	definitions := make([]string, 0)
 
 	for _, primaryKey := range groupPrimaryKeys(primaryKeys) {
@@ -169,38 +168,8 @@ func sqlServerKeyDefinitions(primaryKeys []PrimaryKeyColumn, uniqueConstraints [
 	return definitions
 }
 
-func sqlServerRelationshipDefinitions(foreignKeys []ForeignKeyColumn) []string {
-	groups := groupForeignKeys(foreignKeys)
-	definitions := make([]string, 0, len(groups))
-
-	for _, group := range groups {
-		localColumns := make([]string, 0, len(group.Columns))
-		referencedColumns := make([]string, 0, len(group.Columns))
-
-		for _, column := range group.Columns {
-			localColumns = append(localColumns, "        "+quoteSqlServerIdentifier(column.ColumnName))
-			referencedColumns = append(referencedColumns, "        "+quoteSqlServerIdentifier(column.ReferencedColumn))
-		}
-
-		definition := fmt.Sprintf(
-			"    FOREIGN KEY\n    (\n%s\n    )\n    REFERENCES %s.%s\n    (\n%s\n    )",
-			strings.Join(localColumns, ",\n"),
-			quoteSqlServerIdentifier(group.ReferencedSchema),
-			quoteSqlServerIdentifier(group.ReferencedTable),
-			strings.Join(referencedColumns, ",\n"),
-		)
-
-		definition += "\n    ON DELETE " + sqlServerReferentialAction(group.DeleteAction)
-		definition += "\n    ON UPDATE " + sqlServerReferentialAction(group.UpdateAction)
-
-		definitions = append(definitions, definition)
-	}
-
-	return definitions
-}
-
-func sqlServerRuleDefinitions(checkConstraints []CheckConstraint) []string {
-	sortedConstraints := append([]CheckConstraint(nil), checkConstraints...)
+func sqlServerRuleDefinitions(checkConstraints []sqlserver_models.CheckConstraint) []string {
+	sortedConstraints := append([]sqlserver_models.CheckConstraint(nil), checkConstraints...)
 	sort.Slice(sortedConstraints, func(i, j int) bool {
 		return sortedConstraints[i].Definition < sortedConstraints[j].Definition
 	})
@@ -213,7 +182,7 @@ func sqlServerRuleDefinitions(checkConstraints []CheckConstraint) []string {
 	return definitions
 }
 
-func sqlServerIndexDefinitions(schemaName string, tableName string, indexes []IndexColumn) []string {
+func sqlServerIndexDefinitions(schemaName string, tableName string, indexes []sqlserver_models.IndexColumn) []string {
 	groups := groupIndexes(indexes)
 	definitions := make([]string, 0, len(groups))
 
@@ -287,7 +256,7 @@ func sqlServerUniqueKeyword(isUnique bool) string {
 	return ""
 }
 
-func sqlServerColumnDataType(column Column) string {
+func sqlServerColumnDataType(column sqlserver_models.Column) string {
 	dataType := strings.ToLower(column.DataType)
 	formattedType := dataType
 
@@ -377,7 +346,10 @@ type keyConstraintGroup struct {
 }
 
 type foreignKeyGroup struct {
-	Columns          []ForeignKeyColumn
+	ForeignKeyName   string
+	ParentSchema     string
+	ParentTable      string
+	Columns          []sqlserver_models.ForeignKeyColumn
 	ReferencedSchema string
 	ReferencedTable  string
 	DeleteAction     string
@@ -395,7 +367,7 @@ type indexGroup struct {
 	IncludeColumns    []orderedColumn
 }
 
-func groupPrimaryKeys(primaryKeys []PrimaryKeyColumn) []keyConstraintGroup {
+func groupPrimaryKeys(primaryKeys []sqlserver_models.PrimaryKeyColumn) []keyConstraintGroup {
 	if len(primaryKeys) == 0 {
 		return nil
 	}
@@ -424,7 +396,7 @@ func groupPrimaryKeys(primaryKeys []PrimaryKeyColumn) []keyConstraintGroup {
 	return groups
 }
 
-func groupUniqueConstraints(uniqueConstraints []UniqueConstraintColumn) []keyConstraintGroup {
+func groupUniqueConstraints(uniqueConstraints []sqlserver_models.UniqueConstraintColumn) []keyConstraintGroup {
 	if len(uniqueConstraints) == 0 {
 		return nil
 	}
@@ -469,7 +441,7 @@ func sqlServerConstraintSortKey(group keyConstraintGroup) string {
 	return strings.Join(parts, "|")
 }
 
-func groupForeignKeys(foreignKeys []ForeignKeyColumn) []foreignKeyGroup {
+func groupForeignKeys(foreignKeys []sqlserver_models.ForeignKeyColumn) []foreignKeyGroup {
 	if len(foreignKeys) == 0 {
 		return nil
 	}
@@ -480,6 +452,9 @@ func groupForeignKeys(foreignKeys []ForeignKeyColumn) []foreignKeyGroup {
 		group := groupsByID[foreignKey.ForeignKeyObjectID]
 		if group == nil {
 			group = &foreignKeyGroup{
+				ForeignKeyName:   foreignKey.ForeignKeyName,
+				ParentSchema:     foreignKey.ParentSchema,
+				ParentTable:      foreignKey.ParentTable,
 				ReferencedSchema: foreignKey.ReferencedSchema,
 				ReferencedTable:  foreignKey.ReferencedTable,
 				DeleteAction:     foreignKey.DeleteAction,
@@ -507,7 +482,7 @@ func groupForeignKeys(foreignKeys []ForeignKeyColumn) []foreignKeyGroup {
 }
 
 func sqlServerForeignKeySortKey(group foreignKeyGroup) string {
-	parts := []string{group.ReferencedSchema, group.ReferencedTable}
+	parts := []string{group.ParentSchema, group.ParentTable, group.ForeignKeyName, group.ReferencedSchema, group.ReferencedTable}
 	for _, column := range group.Columns {
 		parts = append(parts, column.ColumnName, column.ReferencedColumn)
 	}
@@ -516,7 +491,7 @@ func sqlServerForeignKeySortKey(group foreignKeyGroup) string {
 	return strings.Join(parts, "|")
 }
 
-func groupIndexes(indexes []IndexColumn) []indexGroup {
+func groupIndexes(indexes []sqlserver_models.IndexColumn) []indexGroup {
 	if len(indexes) == 0 {
 		return nil
 	}

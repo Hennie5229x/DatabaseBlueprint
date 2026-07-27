@@ -1,11 +1,13 @@
-package sqlserver
+package queries
 
 import (
+	models "blueprint/database/discovery/SQLServer/models"
+
 	"gorm.io/gorm"
 )
 
-func SqlServerCheckConstraints(db *gorm.DB, tableName string) []CheckConstraint {
-	var checkConstraints []CheckConstraint
+func SqlServerCheckConstraints(db *gorm.DB, tableName string) []models.CheckConstraint {
+	var checkConstraints []models.CheckConstraint
 
 	err := db.Raw(`
 		SELECT		cc.object_id AS ConstraintObjectID,

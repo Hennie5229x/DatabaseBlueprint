@@ -1,4 +1,4 @@
-package sqlserver
+package queries
 
 import (
 	"blueprint/database/discovery/models"

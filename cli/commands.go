@@ -4,7 +4,7 @@ import (
 	"blueprint/connections"
 	conn_crud "blueprint/connections/crud"
 
-	"blueprint/database/discovery"
+	"blueprint/database/scripting"
 	"blueprint/models"
 )
 
@@ -46,9 +46,9 @@ var Commands = []models.Commands{
 		Category:    models.Connections,
 	},
 	{
-		Name:        "tables",
-		Description: "List all Tables",
-		Run:         discovery.GetTables,
+		Name:        "script",
+		Description: "Script database objects",
+		Run:         scripting.Script,
 		Category:    models.Database,
 	},
 

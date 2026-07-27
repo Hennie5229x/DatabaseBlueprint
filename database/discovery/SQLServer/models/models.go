@@ -1,4 +1,4 @@
-package sqlserver
+package models
 
 type Column struct {
 	ColumnID           int
@@ -39,7 +39,10 @@ type UniqueConstraintColumn struct {
 }
 
 type ForeignKeyColumn struct {
+	ForeignKeyName     string
 	ForeignKeyObjectID int
+	ParentSchema       string
+	ParentTable        string
 	ColumnName         string
 	KeyOrdinal         int
 	ReferencedSchema   string
@@ -67,4 +70,10 @@ type IndexColumn struct {
 	HasFilter         bool
 	FilterDefinition  string
 	IsUserDefinedName bool
+}
+
+type Views struct {
+	Schema     string
+	View       string
+	Definition string
 }

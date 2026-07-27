@@ -9,6 +9,8 @@ import (
 	"github.com/yarlson/pin"
 )
 
+const prefixWidth = len("Foreign Keys")
+
 type Spinner struct {
 	pin       *pin.Pin
 	startTime time.Time
@@ -27,9 +29,11 @@ type Spinner struct {
 
 // New creates and starts a new spinner.
 func New(prefix string, message string) *Spinner {
+	paddedPrefix := fmt.Sprintf("%-*s", prefixWidth, prefix)
+
 	p := pin.New(
 		fmt.Sprintf("0.00s %s", message),
-		pin.WithPrefix(prefix),
+		pin.WithPrefix(paddedPrefix),
 		pin.WithSeparator(":"),
 		pin.WithSeparatorColor(pin.ColorWhite),
 		pin.WithDoneSymbol('✔'),

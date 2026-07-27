@@ -1,11 +1,13 @@
-package sqlserver
+package queries
 
 import (
+	models "blueprint/database/discovery/SQLServer/models"
+
 	"gorm.io/gorm"
 )
 
-func SqlServerColumns(db *gorm.DB, tableName string) []Column {
-	var columns []Column
+func SqlServerColumns(db *gorm.DB, tableName string) []models.Column {
+	var columns []models.Column
 
 	err := db.Raw(`
 		SELECT		c.column_id AS ColumnID,
