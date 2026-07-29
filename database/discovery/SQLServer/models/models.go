@@ -77,3 +77,15 @@ type Views struct {
 	View       string
 	Definition string
 }
+
+type Functions struct {
+	Schema     string
+	Name       string
+	Definition string
+}
+
+type Procedures struct {
+	Schema     string
+	Name       string
+	Definition string
+}

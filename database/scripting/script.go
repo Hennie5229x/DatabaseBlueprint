@@ -48,6 +48,8 @@ func Script_SQLServer(db *gorm.DB) {
 	discoverysqlserver.Tables(db, directory)
 	discoverysqlserver.ForeignKeys(db, directory)
 	discoverysqlserver.Views(db, directory)
+	discoverysqlserver.Functions(db, directory)
+	discoverysqlserver.Procedures(db, directory)
 }
 func Script_MySQL() {
 

@@ -3,11 +3,15 @@ package database
 import (
 	"blueprint/models"
 	"fmt"
+	"log"
 	"net"
 	"net/url"
+	"os"
+	"time"
 
 	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 func SQLServerConnect(conn models.Connection) (*gorm.DB, error) {
@@ -25,5 +29,15 @@ func SQLServerConnect(conn models.Connection) (*gorm.DB, error) {
 		url.QueryEscape(conn.Database),
 	)
 
-	return gorm.Open(sqlserver.Open(dsn), &gorm.Config{})
+	logger := gormlogger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		gormlogger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  gormlogger.Error,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  false,
+		},
+	)
+
+	return gorm.Open(sqlserver.Open(dsn), &gorm.Config{Logger: logger})
 }

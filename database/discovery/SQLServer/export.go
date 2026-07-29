@@ -59,7 +59,7 @@ func ScriptTables(db gorm.DB, directory string, tables []discoverymodels.Tables,
 		tableDefinition := BuildTableScript(db, table.Schema, table.Name)
 
 		// Tables
-		tablesPath := filepath.Join(directory, "Tables", fmt.Sprintf("%s.%s", table.Name, "sql"))
+		tablesPath := filepath.Join(directory, "Tables", fmt.Sprintf("%s.%s.%s", table.Schema, table.Name, "sql"))
 		if err := os.MkdirAll(filepath.Dir(tablesPath), 0o755); err != nil {
 			return err
 		}
@@ -94,7 +94,7 @@ func ScriptForeignKeys(db gorm.DB, directory string, foreignKeys []sqlserver_mod
 		foreignKeyDefinition := BuildForeignKeyScript(groupsByID[foreignKeyObjectID])
 
 		// Foreign Keys
-		foreignKeyPath := filepath.Join(directory, "ForeignKeys", fmt.Sprintf("%s.%s", fkey.ForeignKeyName, "sql"))
+		foreignKeyPath := filepath.Join(directory, "ForeignKeys", fmt.Sprintf("%s.%s.%s", fkey.ParentSchema, fkey.ForeignKeyName, "sql"))
 
 		if err := os.MkdirAll(filepath.Dir(foreignKeyPath), 0o755); err != nil {
 			return err
@@ -117,7 +117,7 @@ func ScriptViews(db gorm.DB, directory string, views []sqlserver_models.Views, o
 		viewDefinition = view.Definition
 
 		// Views
-		viewsPath := filepath.Join(directory, "Views", fmt.Sprintf("%s.%s", view.View, "sql"))
+		viewsPath := filepath.Join(directory, "Views", fmt.Sprintf("%s.%s.%s", view.Schema, view.View, "sql"))
 		if err := os.MkdirAll(filepath.Dir(viewsPath), 0o755); err != nil {
 			return err
 		}
@@ -125,6 +125,52 @@ func ScriptViews(db gorm.DB, directory string, views []sqlserver_models.Views, o
 			return err
 		}
 
+	}
+
+	return nil
+}
+
+func ScriptFunctions(db gorm.DB, directory string, functions []sqlserver_models.Functions, onProgress func(index int, total int, function sqlserver_models.Functions)) error {
+	var functionDefinition string = ""
+
+	for index, fn := range functions {
+		if onProgress != nil {
+			onProgress(index, len(functions), fn)
+		}
+
+		functionDefinition = fn.Definition
+
+		// Functions
+		functionsPath := filepath.Join(directory, "Functions", fmt.Sprintf("%s.%s.%s", fn.Schema, fn.Name, "sql"))
+		if err := os.MkdirAll(filepath.Dir(functionsPath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(functionsPath, []byte(functionDefinition), 0o644); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ScriptProcedures(db gorm.DB, directory string, procedures []sqlserver_models.Procedures, onProgress func(index int, total int, proc sqlserver_models.Procedures)) error {
+	var procDefinition string = ""
+
+	for index, p := range procedures {
+		if onProgress != nil {
+			onProgress(index, len(procedures), p)
+		}
+
+		procDefinition = p.Definition
+
+		// Procedures
+		procPath := filepath.Join(directory, "Procedures", fmt.Sprintf("%s.%s.%s", p.Schema, p.Name, "sql"))
+		if err := os.MkdirAll(filepath.Dir(procPath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(procPath, []byte(procDefinition), 0o644); err != nil {
+			return err
+		}
 	}
 
 	return nil
