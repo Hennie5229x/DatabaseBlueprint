@@ -176,15 +176,17 @@ func ScriptProcedures(db gorm.DB, directory string, procedures []sqlserver_model
 	return nil
 }
 
-func ScriptTableData(directory string, tableName string, rows []map[string]interface{}, columns []sqlserver_models.Column) error {
+func ScriptTableData(directory string, schemaName string, tableName string, rows []map[string]interface{}, columns []sqlserver_models.Column, primaryKeys []sqlserver_models.PrimaryKeyColumn) error {
 	tableDataPath := filepath.Join(directory, "TableData", tableName)
 	if err := os.MkdirAll(tableDataPath, 0o755); err != nil {
 		return err
 	}
 
+	columnsByName := columnsByName(columns)
 	for index, row := range rows {
-		rowDefinition := formatTableData([]map[string]interface{}{row}, columns)
-		rowPath := filepath.Join(tableDataPath, fmt.Sprintf("%d.txt", index+1))
+		rowDefinition := generateInsertStatement(schemaName, tableName, row, columns)
+		fileName := tableDataFileName(row, primaryKeys, columnsByName, index+1)
+		rowPath := filepath.Join(tableDataPath, fmt.Sprintf("%s.sql", fileName))
 		if err := os.WriteFile(rowPath, []byte(rowDefinition), 0o644); err != nil {
 			return err
 		}

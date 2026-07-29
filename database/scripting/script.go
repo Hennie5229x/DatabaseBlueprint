@@ -8,6 +8,7 @@ import (
 	"blueprint/models"
 	"fmt"
 	"os"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -15,6 +16,8 @@ import (
 const directory string = appinfo.ScriptDirectory
 
 func Script(args []string) {
+	startTime := time.Now()
+
 	var Argument string = ""
 	if len(args) > 0 {
 		Argument = args[0]
@@ -42,6 +45,8 @@ func Script(args []string) {
 	case models.SQLite:
 		Script_SQLite()
 	}
+
+	fmt.Printf("\nTotal time: %.2fs\n", time.Since(startTime).Seconds())
 }
 
 func Script_SQLServer(db *gorm.DB) {
