@@ -50,6 +50,7 @@ func Script_SQLServer(db *gorm.DB) {
 	discoverysqlserver.Views(db, directory)
 	discoverysqlserver.Functions(db, directory)
 	discoverysqlserver.Procedures(db, directory)
+	discoverysqlserver.TableData(db, directory)
 }
 func Script_MySQL() {
 
