@@ -2,6 +2,10 @@ module blueprint
 
 go 1.26.4
 
+godebug (
+	x509negativeserial=1
+)
+
 require (
 	github.com/aquasecurity/table v1.11.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
