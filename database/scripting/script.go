@@ -37,7 +37,7 @@ func Script(args []string) {
 
 	switch conn.Type {
 	case models.SqlServer:
-		Script_SQLServer(db)
+		Script_SQLServer(db, conn.Database)
 	case models.MySql:
 		Script_MySQL()
 	case models.PostgreSql:
@@ -49,12 +49,13 @@ func Script(args []string) {
 	fmt.Printf("\nTotal time: %.2fs\n", time.Since(startTime).Seconds())
 }
 
-func Script_SQLServer(db *gorm.DB) {
+func Script_SQLServer(db *gorm.DB, databaseName string) {
 	discoverysqlserver.Tables(db, directory)
 	discoverysqlserver.ForeignKeys(db, directory)
 	discoverysqlserver.Views(db, directory)
 	discoverysqlserver.Functions(db, directory)
 	discoverysqlserver.Procedures(db, directory)
+	discoverysqlserver.GenerateRunOrder(db, directory, databaseName)
 	discoverysqlserver.TableData(db, directory)
 }
 func Script_MySQL() {
