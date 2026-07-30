@@ -6,8 +6,10 @@ import (
 	"blueprint/database"
 	discoverysqlserver "blueprint/database/discovery/SQLServer"
 	"blueprint/models"
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -16,12 +18,19 @@ import (
 const directory string = appinfo.ScriptDirectory
 
 func Script(args []string) {
-	startTime := time.Now()
 
 	var Argument string = ""
 	if len(args) > 0 {
 		Argument = args[0]
 	}
+
+	var yn bool = AskYesNo(fmt.Sprintf("Do you want to script %s?", Argument), true)
+
+	if !yn {
+		return
+	}
+
+	startTime := time.Now()
 
 	clearScriptDirectory(directory)
 
@@ -33,7 +42,7 @@ func Script(args []string) {
 
 	db, _ := database.Connect(*conn)
 
-	fmt.Println(Argument)
+	fmt.Printf("----- %s -----\n", Argument)
 
 	switch conn.Type {
 	case models.SqlServer:
@@ -76,4 +85,36 @@ func clearScriptDirectory(path string) error {
 
 	// Recreate the empty directory.
 	return os.MkdirAll(path, 0o755)
+}
+
+// -----------------------
+// Yes / No  CLI handler
+// -----------------------
+func AskYesNo(prompt string, def bool) bool {
+	choices := "Y/n"
+	if !def {
+		choices = "y/N"
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Printf("%s [%s]: ", prompt, choices)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return def
+		}
+
+		input = strings.TrimSpace(strings.ToLower(input))
+		if input == "" {
+			return def
+		}
+		if input == "y" || input == "yes" {
+			return true
+		}
+		if input == "n" || input == "no" {
+			return false
+		}
+		fmt.Println("Invalid input. Please type 'y' or 'n'.")
+	}
 }
