@@ -1,11 +1,21 @@
 ## Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Hennie5229x/DatabaseBlueprint/main/install.sh | sh
+curl -fsSL \
+  https://raw.githubusercontent.com/Hennie5229x/DatabaseBlueprint/refs/heads/main/install.sh |
+  sh
 ```
 
 Verify:
 
 ```bash
 blue version
+```
+
+## Uninstallation
+
+```bash
+curl -fsSL \
+  https://raw.githubusercontent.com/Hennie5229x/DatabaseBlueprint/refs/heads/main/uninstall.sh |
+  sh
 ```
