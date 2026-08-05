@@ -59,7 +59,9 @@ func Script(args []string) {
 }
 
 func Script_SQLServer(db *gorm.DB, databaseName string) {
+	discoverysqlserver.UserDefinedTypes(db, directory)
 	discoverysqlserver.Tables(db, directory)
+	discoverysqlserver.TableTypes(db, directory)
 	discoverysqlserver.ForeignKeys(db, directory)
 	discoverysqlserver.Views(db, directory)
 	discoverysqlserver.Functions(db, directory)

@@ -90,6 +90,83 @@ type Procedures struct {
 	Definition string
 }
 
+type UserDefinedTableType struct {
+	SchemaName        string
+	TypeName          string
+	IsMemoryOptimized bool
+}
+
+type UserDefinedType struct {
+	SchemaName   string
+	TypeName     string
+	BaseTypeName string
+	MaxLength    int
+	Precision    int
+	Scale        int
+	IsNullable   bool
+}
+
+type UserDefinedTableTypeColumn struct {
+	SchemaName            string
+	TypeName              string
+	ColumnID              int
+	ColumnName            string
+	DataTypeName          string
+	MaxLength             int
+	Precision             int
+	Scale                 int
+	CollationName         string
+	IsNullable            bool
+	IsIdentity            bool
+	IsComputed            bool
+	IdentitySeed          string
+	IdentityIncrement     string
+	ComputedDefinition    string
+	IsPersisted           bool
+	DefaultConstraintName string
+	DefaultDefinition     string
+}
+
+type UserDefinedTableTypeKeyColumn struct {
+	SchemaName         string
+	TypeName           string
+	ConstraintObjectID int
+	ConstraintName     string
+	ConstraintType     string
+	IndexName          string
+	IndexType          string
+	ColumnName         string
+	KeyOrdinal         int
+	IsDescending       bool
+	BucketCount        int
+}
+
+type UserDefinedTableTypeCheckConstraint struct {
+	SchemaName         string
+	TypeName           string
+	ConstraintObjectID int
+	ConstraintName     string
+	ParentColumnID     int
+	Definition         string
+}
+
+type UserDefinedTableTypeIndexColumn struct {
+	SchemaName       string
+	TypeName         string
+	IndexID          int
+	IndexName        string
+	IndexType        string
+	IsUnique         bool
+	ColumnName       string
+	KeyOrdinal       int
+	IsDescending     bool
+	IsIncluded       bool
+	IncludeOrder     int
+	HasFilter        bool
+	FilterDefinition string
+	BucketCount      int
+}
+
 type DependencyRow struct {
 	ReferencingObjectID int    `gorm:"column:ReferencingObjectId"`
 	ReferencingSchema   string `gorm:"column:ReferencingSchema"`

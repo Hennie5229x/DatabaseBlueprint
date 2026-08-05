@@ -315,6 +315,8 @@ func runOrderFilePath(object sqlservermodels.DatabaseObject) string {
 		directory = "Functions"
 	case "P":
 		directory = "Procedures"
+	case "TT":
+		directory = "TableTypes"
 	}
 
 	return fmt.Sprintf("%s/%s.sql", directory, qualifiedObjectName(object.Schema, object.Name))

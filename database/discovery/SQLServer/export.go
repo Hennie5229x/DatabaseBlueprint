@@ -49,6 +49,19 @@ func BuildForeignKeyScript(foreignKeys []sqlserver_models.ForeignKeyColumn) stri
 	return foreignKeyStatements[0] + fmt.Sprintln("")
 }
 
+func BuildTableTypeScript(db gorm.DB, tableType sqlserver_models.UserDefinedTableType) string {
+	columns := TableTypeColumns(&db, tableType)
+	keys := TableTypeKeys(&db, tableType)
+	checks := TableTypeChecks(&db, tableType)
+	indexes := TableTypeIndexes(&db, tableType)
+
+	return GenerateCreateTableType(tableType, columns, keys, checks, indexes)
+}
+
+func BuildUserDefinedTypeScript(userDefinedType sqlserver_models.UserDefinedType) string {
+	return GenerateCreateUserDefinedType(userDefinedType)
+}
+
 func ScriptTables(db gorm.DB, directory string, tables []discoverymodels.Tables, onProgress func(index int, total int, table discoverymodels.Tables)) error {
 
 	for index, table := range tables {
@@ -67,6 +80,44 @@ func ScriptTables(db gorm.DB, directory string, tables []discoverymodels.Tables,
 			return err
 		}
 
+	}
+
+	return nil
+}
+
+func ScriptTableTypes(db gorm.DB, directory string, tableTypes []sqlserver_models.UserDefinedTableType, onProgress func(index int, total int, tableType sqlserver_models.UserDefinedTableType)) error {
+	for index, tableType := range tableTypes {
+		if onProgress != nil {
+			onProgress(index, len(tableTypes), tableType)
+		}
+
+		tableTypeDefinition := BuildTableTypeScript(db, tableType)
+		tableTypePath := filepath.Join(directory, "TableTypes", fmt.Sprintf("%s.%s.%s", tableType.SchemaName, tableType.TypeName, "sql"))
+		if err := os.MkdirAll(filepath.Dir(tableTypePath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(tableTypePath, []byte(tableTypeDefinition), 0o644); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ScriptUserDefinedTypes(directory string, userDefinedTypes []sqlserver_models.UserDefinedType, onProgress func(index int, total int, userDefinedType sqlserver_models.UserDefinedType)) error {
+	for index, userDefinedType := range userDefinedTypes {
+		if onProgress != nil {
+			onProgress(index, len(userDefinedTypes), userDefinedType)
+		}
+
+		userDefinedTypeDefinition := BuildUserDefinedTypeScript(userDefinedType)
+		userDefinedTypePath := filepath.Join(directory, "DataTypes", fmt.Sprintf("%s.%s.%s", userDefinedType.SchemaName, userDefinedType.TypeName, "sql"))
+		if err := os.MkdirAll(filepath.Dir(userDefinedTypePath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(userDefinedTypePath, []byte(userDefinedTypeDefinition), 0o644); err != nil {
+			return err
+		}
 	}
 
 	return nil
