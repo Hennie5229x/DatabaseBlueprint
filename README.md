@@ -1,4 +1,4 @@
-## Installation
+## Install and Update
 
 ```bash
 curl -fsSL \
@@ -9,10 +9,10 @@ curl -fsSL \
 Verify:
 
 ```bash
-blue version
+blue
 ```
 
-## Uninstallation
+## Uninstall
 
 ```bash
 curl -fsSL \
