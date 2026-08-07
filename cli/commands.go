@@ -9,6 +9,8 @@ import (
 )
 
 var Commands = []models.Commands{
+
+	// ---- System ----
 	{
 		Name:        "version",
 		Description: "Shows application version",
@@ -21,11 +23,30 @@ var Commands = []models.Commands{
 		Run:         conn_crud.List,
 		Category:    models.Connections,
 	},
+	// ---- Connections ----
 	{
 		Name:        "test",
 		Description: "Test the database connection",
-		Run:         connections.Test,
-		Category:    models.Connections,
+		Usage: models.CommandUsage{
+			Arguments: []models.UsageItem{
+				{
+					Name:        "connection-name",
+					Description: "Name of a saved connection",
+				},
+			},
+			Flags: []models.UsageItem{
+				{
+					Name:        "-h, --help",
+					Description: "Show usage and examples",
+				},
+			},
+			Examples: []string{
+				"blue test Production",
+			},
+		},
+
+		Run:      connections.Test,
+		Category: models.Connections,
 	},
 	{
 		Name:        "add",
@@ -45,6 +66,7 @@ var Commands = []models.Commands{
 		Run:         conn_crud.Delete,
 		Category:    models.Connections,
 	},
+	// ---- Database ----
 	{
 		Name:        "script",
 		Description: "Script database objects",
