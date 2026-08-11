@@ -24,12 +24,6 @@ func Script(args []string) {
 		Argument = args[0]
 	}
 
-	var yn bool = AskYesNo(fmt.Sprintf("Do you want to script %s?", Argument), true)
-
-	if !yn {
-		return
-	}
-
 	startTime := time.Now()
 
 	clearScriptDirectory(directory)
@@ -37,6 +31,12 @@ func Script(args []string) {
 	// Get Connection
 	id, conn := connections.GetConnection(Argument)
 	if id == "" || conn == nil {
+		return
+	}
+
+	var yn bool = AskYesNo(fmt.Sprintf("Do you want to script %s?", Argument), true)
+
+	if !yn {
 		return
 	}
 

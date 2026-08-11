@@ -1,7 +1,7 @@
 package appinfo
 
 const (
-	Name            = "Database Blueprint"
+	Name            = "DATABASE BLUEPRINT"
 	CLIName         = "blue"
 	BannerWidth     = 38
 	ConnectionsFile = "config.json"

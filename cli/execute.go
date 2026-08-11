@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"blueprint/appinfo"
 	"blueprint/models"
 	"fmt"
 	"os"
@@ -39,7 +38,7 @@ func executeCommand(cmd models.Commands, args []string) {
 	if len(args) > 0 {
 		// Handle help flags for normal commands
 		if isHelpArg(args[0]) {
-			printCommandHelp(cmd)
+			cmd.PrintCommandHelp()
 			return
 		}
 
@@ -63,54 +62,6 @@ func executeCommand(cmd models.Commands, args []string) {
 // Help flag for normal commands
 func isHelpArg(arg string) bool {
 	return arg == "-h" || arg == "--help" || arg == "help"
-}
-
-// Command Usage
-func printCommandHelp(cmd models.Commands) {
-	fmt.Printf("Command: %s\n", cmd.Name)
-	fmt.Printf("Description: %s\n\n", cmd.Description)
-
-	fmt.Println("Usage:")
-	fmt.Printf("  %s %s", appinfo.CLIName, cmd.Name)
-
-	for _, argument := range cmd.Usage.Arguments {
-		fmt.Printf(" <%s>", argument.Name)
-	}
-
-	if len(cmd.Usage.Flags) > 0 {
-		fmt.Print(" [flags]")
-	}
-
-	fmt.Println()
-	fmt.Println()
-
-	if len(cmd.Usage.Arguments) > 0 {
-		fmt.Println("Arguments:")
-
-		for _, argument := range cmd.Usage.Arguments {
-			fmt.Printf("  %-20s %s\n", argument.Name, argument.Description)
-		}
-
-		fmt.Println()
-	}
-
-	if len(cmd.Usage.Flags) > 0 {
-		fmt.Println("Flags:")
-
-		for _, flag := range cmd.Usage.Flags {
-			fmt.Printf("  %-20s %s\n", flag.Name, flag.Description)
-		}
-
-		fmt.Println()
-	}
-
-	if len(cmd.Usage.Examples) > 0 {
-		fmt.Println("Examples:")
-
-		for _, example := range cmd.Usage.Examples {
-			fmt.Printf("  %s\n", example)
-		}
-	}
 }
 
 func Help() {

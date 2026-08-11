@@ -12,7 +12,6 @@ var (
 	versionLong  = flag.Bool("version", false, "Show version")
 	helpShort    = flag.Bool("h", false, "List of all commands")
 	helpLong     = flag.Bool("help", false, "List of all commands")
-	testFlag     = flag.Bool("test", false, "Run test command")
 )
 
 func Flags() {
@@ -20,7 +19,6 @@ func Flags() {
 
 	version()
 	help()
-	Test()
 
 }
 
@@ -38,13 +36,6 @@ func Version(args []string) {
 func help() {
 	if *helpShort || *helpLong {
 		Help()
-		os.Exit(0)
-	}
-}
-
-func Test() {
-	if *testFlag {
-		fmt.Println("TEST")
 		os.Exit(0)
 	}
 }
