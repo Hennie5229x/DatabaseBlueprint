@@ -1,4 +1,4 @@
-## Install and Update
+## Install and Update (Linux)
 
 ```bash
 curl -fsSL \
@@ -12,7 +12,7 @@ Verify:
 blue
 ```
 
-## Uninstall
+## Uninstall (Linux)
 
 ```bash
 curl -fsSL \
