@@ -2,6 +2,7 @@ package cli
 
 import (
 	"blueprint/appinfo"
+	"blueprint/models"
 	"flag"
 	"fmt"
 	"os"
@@ -29,7 +30,7 @@ func version() {
 	}
 }
 
-func Version(args []string) {
+func Version(input models.CommandInput) {
 	fmt.Printf("%s %s\n", appinfo.Name, appinfo.Version)
 }
 

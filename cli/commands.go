@@ -45,9 +45,10 @@ var Commands = []models.Commands{
 					Description: "Name of a saved connection",
 				},
 			},
-			Flags: []models.UsageItem{
+			Flags: []models.Flag{
 				{
-					Name:        "-h, --help",
+					Key:         "help",
+					Names:       []string{"-h", "--help"},
 					Description: "Show usage and examples",
 				},
 			},
@@ -75,9 +76,10 @@ var Commands = []models.Commands{
 					Description: "Name of a saved connection",
 				},
 			},
-			Flags: []models.UsageItem{
+			Flags: []models.Flag{
 				{
-					Name:        "-h, --help",
+					Key:         "help",
+					Names:       []string{"-h", "--help"},
 					Description: "Show usage and examples",
 				},
 			},
@@ -99,9 +101,10 @@ var Commands = []models.Commands{
 					Description: "Name of a saved connection",
 				},
 			},
-			Flags: []models.UsageItem{
+			Flags: []models.Flag{
 				{
-					Name:        "-h, --help",
+					Key:         "help",
+					Names:       []string{"-h", "--help"},
 					Description: "Show usage and examples",
 				},
 			},
@@ -124,13 +127,15 @@ var Commands = []models.Commands{
 					Description: "Name of a saved connection",
 				},
 			},
-			Flags: []models.UsageItem{
+			Flags: []models.Flag{
 				{
-					Name:        "-h, --help",
+					Key:         "help",
+					Names:       []string{"-h", "--help"},
 					Description: "Show usage and examples",
 				},
 				{
-					Name:        "--data-only",
+					Key:         "data-only",
+					Names:       []string{"--data-only"},
 					Description: "Script data only",
 				},
 			},
@@ -173,6 +178,6 @@ var Commands = []models.Commands{
 		},
 	}, */
 
-func testFunc(args []string) {
-	fmt.Println("TEST", args)
+func testFunc(input models.CommandInput) {
+	fmt.Println("TEST", input.RawArgs)
 }

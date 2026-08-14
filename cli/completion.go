@@ -2,11 +2,12 @@ package cli
 
 import (
 	"blueprint/appinfo"
+	"blueprint/models"
 	"fmt"
 )
 
-func Completion(args []string) {
-	if len(args) == 0 || args[0] != "bash" {
+func Completion(input models.CommandInput) {
+	if len(input.Arguments) == 0 || input.Arguments[0] != "bash" {
 		fmt.Printf("Usage: %s completion bash\n", appinfo.CLIName)
 		return
 	}

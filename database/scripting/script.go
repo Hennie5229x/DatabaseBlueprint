@@ -20,18 +20,15 @@ const directory string = appinfo.ScriptDirectory
 /*
 Validate Flags by looking at the models.Commands flags
 */
-func Script(args []string) {
+func Script(input models.CommandInput) {
 
 	var Argument string = ""
-	if len(args) > 0 {
-		Argument = args[0]
+	if len(input.Arguments) > 0 {
+		Argument = input.Arguments[0]
 	}
 
-	var Flags string = ""
-	if len(args) > 1 {
-		Flags = args[1]
-		println(Flags)
-	}
+	dataOnly := input.Flags["data-only"]
+	_ = dataOnly
 
 	// Get Connection
 	id, conn := connections.GetConnection(Argument)

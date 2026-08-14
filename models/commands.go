@@ -3,13 +3,14 @@ package models
 import (
 	"blueprint/appinfo"
 	"fmt"
+	"strings"
 )
 
 type Commands struct {
 	Name        string
 	Description string
 	Usage       CommandUsage
-	Run         func(args []string)
+	Run         func(input CommandInput)
 	Category    CommandType
 	Hide        bool
 
@@ -50,7 +51,7 @@ func (cmd Commands) PrintCommandHelp() {
 		fmt.Println("Flags:")
 
 		for _, flag := range cmd.Usage.Flags {
-			fmt.Printf("  %-20s %s\n", flag.Name, flag.Description)
+			fmt.Printf("  %-20s %s\n", strings.Join(flag.Names, ", "), flag.Description)
 		}
 
 		fmt.Println()

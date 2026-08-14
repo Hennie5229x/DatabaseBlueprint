@@ -9,11 +9,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func Edit(args []string) {
+func Edit(input models.CommandInput) {
 
 	var Argument string = ""
-	if len(args) > 0 {
-		Argument = args[0]
+	if len(input.Arguments) > 0 {
+		Argument = input.Arguments[0]
 	}
 
 	id, conn := connections.GetConnection(Argument)

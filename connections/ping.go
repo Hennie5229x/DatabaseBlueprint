@@ -2,6 +2,7 @@ package connections
 
 import (
 	"blueprint/database"
+	"blueprint/models"
 	"fmt"
 	"strings"
 )
@@ -14,11 +15,11 @@ func PadRight(text string, width int) string {
 	return text + strings.Repeat(" ", width-len(text))
 }
 
-func Test(args []string) {
+func Test(input models.CommandInput) {
 
 	var Argument string = ""
-	if len(args) > 0 {
-		Argument = args[0]
+	if len(input.Arguments) > 0 {
+		Argument = input.Arguments[0]
 	}
 
 	id, conn := GetConnection(Argument)

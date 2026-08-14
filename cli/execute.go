@@ -55,11 +55,53 @@ func executeCommand(cmd models.Commands, args []string) {
 	}
 
 	if cmd.Run != nil {
-		cmd.Run(args)
+		input, ok := parseCommandInput(cmd, args)
+		if !ok {
+			return
+		}
+
+		if input.Flags["help"] {
+			cmd.PrintCommandHelp()
+			return
+		}
+
+		cmd.Run(input)
 		return
 	}
 
 	fmt.Printf("'%s' requires a subcommand\n", cmd.Name)
+}
+
+func parseCommandInput(cmd models.Commands, args []string) (models.CommandInput, bool) {
+	input := models.CommandInput{
+		RawArgs:   args,
+		Arguments: []string{},
+		Flags:     map[string]bool{},
+	}
+
+	flagLookup := map[string]string{}
+	for _, flag := range cmd.Usage.Flags {
+		for _, name := range flag.Names {
+			flagLookup[name] = flag.Key
+		}
+	}
+
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-") {
+			flagKey, exists := flagLookup[arg]
+			if !exists {
+				fmt.Printf("Unknown flag '%s' for command '%s'\n", arg, cmd.Name)
+				return input, false
+			}
+
+			input.Flags[flagKey] = true
+			continue
+		}
+
+		input.Arguments = append(input.Arguments, arg)
+	}
+
+	return input, true
 }
 
 // Help flag for normal commands
@@ -130,7 +172,7 @@ func printSubCommands(parentCmd models.Commands, currentIndent string) {
 // --------------------------
 func autoCompleteCommands(args []string) {
 	validArguments := []string{}
-	//validFlags := []string{}
+	validFlags := []string{}
 
 	current := ""
 	path := []string{}
@@ -140,15 +182,42 @@ func autoCompleteCommands(args []string) {
 		path = args[:len(args)-1]
 	}
 
+	// Flag Detection on Command
+	current_flag := ""
+	if strings.HasPrefix(current, "-") {
+		current_flag = current
+	}
+
+	//fmt.Println("CUR:", current)
+	//fmt.Println("PATH:", path)
+	//fmt.Println(last_command)
+	//fmt.Println("FLAG:", current_flag)
+
 	commandsAtDepth := resolveCommandPath(Commands, path)
 	if len(path) == 0 {
 		commandsAtDepth = append([]models.Commands{{Name: "help"}}, commandsAtDepth...)
 	}
 
+	flagCommand := resolveCommand(Commands, path)
+
 	var argLen int = len(current)
 	var cmdTrimmed string = ""
 
+	if current_flag != "" && flagCommand != nil {
+		for _, f := range flagCommand.Usage.Flags {
+			for _, flagName := range f.Names {
+				if len(current_flag) <= len(flagName) {
+					flagTrimmed := flagName[0:len(current_flag)] // Prefix test
+					if flagTrimmed == current_flag {
+						validFlags = append(validFlags, flagName)
+					}
+				}
+			}
+		}
+	}
+
 	for _, c := range commandsAtDepth {
+		// Build valid Command list
 		if argLen <= len(c.Name) {
 			cmdTrimmed = string(c.Name[0:argLen]) // Prefix test
 			if cmdTrimmed == current {
@@ -157,7 +226,11 @@ func autoCompleteCommands(args []string) {
 		}
 	}
 
-	if len(validArguments) > 0 {
+	if len(validFlags) > 0 {
+		for _, validFlag := range validFlags {
+			fmt.Println(validFlag)
+		}
+	} else if len(validArguments) > 0 {
 		for _, validArg := range validArguments {
 			fmt.Println(validArg)
 		}
@@ -175,6 +248,24 @@ func resolveCommandPath(commands []models.Commands, path []string) []models.Comm
 	for _, cmd := range commands {
 		if cmd.Name == path[0] {
 			return resolveCommandPath(cmd.SubCommands, path[1:])
+		}
+	}
+
+	return nil
+}
+
+func resolveCommand(commands []models.Commands, path []string) *models.Commands {
+	if len(path) == 0 {
+		return nil
+	}
+
+	for _, cmd := range commands {
+		if cmd.Name == path[0] {
+			if len(path) == 1 {
+				return &cmd
+			}
+
+			return resolveCommand(cmd.SubCommands, path[1:])
 		}
 	}
 

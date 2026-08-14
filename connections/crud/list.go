@@ -20,7 +20,7 @@ func getTypeName(dbtype models.DatabaseType) string {
 	return Name
 }
 
-func List(args []string) {
+func List(input models.CommandInput) {
 
 	t := table.New(os.Stdout)
 	t.SetRowLines(false)

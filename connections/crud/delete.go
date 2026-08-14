@@ -2,17 +2,18 @@ package crud
 
 import (
 	"blueprint/connections"
+	"blueprint/models"
 	"fmt"
 	"slices"
 
 	"github.com/charmbracelet/huh"
 )
 
-func Delete(args []string) {
+func Delete(input models.CommandInput) {
 
 	var Argument string = ""
-	if len(args) > 0 {
-		Argument = args[0]
+	if len(input.Arguments) > 0 {
+		Argument = input.Arguments[0]
 	}
 
 	id, conn := connections.GetConnection(Argument)

@@ -23,7 +23,7 @@ func NameExist(Name string, config models.ConnectionsFile) bool {
 	return Exsists
 }
 
-func Add(args []string) {
+func Add(input models.CommandInput) {
 	options := make([]huh.Option[models.DatabaseType], 0, len(models.DatabaseTypes))
 
 	for _, db := range models.DatabaseTypes {
