@@ -23,6 +23,7 @@ var Commands = []models.Commands{
 		Description: "Generate shell completion scripts",
 		Run:         Completion,
 		Category:    models.System,
+		Hide:        true,
 	},
 	// ---- Connections ----
 	{
@@ -34,6 +35,9 @@ var Commands = []models.Commands{
 	{
 		Name:        "test",
 		Description: "Test the database connection",
+		Run:         connections.Test,
+		Category:    models.Connections,
+
 		Usage: models.CommandUsage{
 			Arguments: []models.UsageItem{
 				{
@@ -51,9 +55,6 @@ var Commands = []models.Commands{
 				"blue test Production",
 			},
 		},
-
-		Run:      connections.Test,
-		Category: models.Connections,
 	},
 	{
 		Name:        "add",
@@ -66,12 +67,48 @@ var Commands = []models.Commands{
 		Description: "Edit a database connection",
 		Run:         conn_crud.Edit,
 		Category:    models.Connections,
+
+		Usage: models.CommandUsage{
+			Arguments: []models.UsageItem{
+				{
+					Name:        "connection-name",
+					Description: "Name of a saved connection",
+				},
+			},
+			Flags: []models.UsageItem{
+				{
+					Name:        "-h, --help",
+					Description: "Show usage and examples",
+				},
+			},
+			Examples: []string{
+				"blue edit Production",
+			},
+		},
 	},
 	{
 		Name:        "delete",
 		Description: "Delete a database connection",
 		Run:         conn_crud.Delete,
 		Category:    models.Connections,
+
+		Usage: models.CommandUsage{
+			Arguments: []models.UsageItem{
+				{
+					Name:        "connection-name",
+					Description: "Name of a saved connection",
+				},
+			},
+			Flags: []models.UsageItem{
+				{
+					Name:        "-h, --help",
+					Description: "Show usage and examples",
+				},
+			},
+			Examples: []string{
+				"blue delete Production",
+			},
+		},
 	},
 	// ---- Database ----
 	{
@@ -79,36 +116,27 @@ var Commands = []models.Commands{
 		Description: "Script database objects",
 		Run:         scripting.Script,
 		Category:    models.Database,
-	},
 
-	{
-		Name:        "test1",
-		Description: "",
-		Category:    models.Test,
-		SubCommands: []models.Commands{
-			{
-				Name:        "test2a",
-				Description: "",
-				Run:         testFunc,
-				SubCommands: []models.Commands{
-					{
-						Name:        "test3",
-						Description: "",
-						Run:         testFunc,
-						SubCommands: []models.Commands{
-							{
-								Name:        "test4",
-								Description: "",
-								Run:         testFunc,
-							},
-						},
-					},
+		Usage: models.CommandUsage{
+			Arguments: []models.UsageItem{
+				{
+					Name:        "connection-name",
+					Description: "Name of a saved connection",
 				},
 			},
-			{
-				Name:        "test2b",
-				Description: "",
-				Run:         testFunc,
+			Flags: []models.UsageItem{
+				{
+					Name:        "-h, --help",
+					Description: "Show usage and examples",
+				},
+				{
+					Name:        "--data-only",
+					Description: "Script data only",
+				},
+			},
+			Examples: []string{
+				"blue script Production",
+				"blue script Production --data-only",
 			},
 		},
 	},

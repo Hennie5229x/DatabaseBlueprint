@@ -67,6 +67,9 @@ func isHelpArg(arg string) bool {
 	return arg == "-h" || arg == "--help" || arg == "help"
 }
 
+// --------------------------
+// Global Help command
+// --------------------------
 func Help() {
 	cat_slices := []string{}
 	for _, cats := range Commands {
@@ -81,7 +84,7 @@ func Help() {
 		fmt.Println("----------", strings.ToUpper(cats), "----------")
 
 		for _, cmd := range Commands {
-			if cats == string(cmd.Category) {
+			if cats == string(cmd.Category) && !cmd.Hide {
 				if cats == string(models.System) { //Append Help manually
 					fmt.Printf("%-20s %s\n", "help", "(List of all commands)")
 				}
@@ -122,9 +125,12 @@ func printSubCommands(parentCmd models.Commands, currentIndent string) {
 	}
 }
 
-// Auto Complete Commands
+// --------------------------
+// Auto Complete Commands & Flags
+// --------------------------
 func autoCompleteCommands(args []string) {
 	validArguments := []string{}
+	//validFlags := []string{}
 
 	current := ""
 	path := []string{}
@@ -135,6 +141,9 @@ func autoCompleteCommands(args []string) {
 	}
 
 	commandsAtDepth := resolveCommandPath(Commands, path)
+	if len(path) == 0 {
+		commandsAtDepth = append([]models.Commands{{Name: "help"}}, commandsAtDepth...)
+	}
 
 	var argLen int = len(current)
 	var cmdTrimmed string = ""
@@ -154,7 +163,7 @@ func autoCompleteCommands(args []string) {
 		}
 	}
 
-	// fmt.Printf("Match(es) found for '%s' => '%s'\n", path, validArguments)
+	//fmt.Printf("Match(es) found for '%s' => '%s'\n", path, validArguments)
 
 }
 

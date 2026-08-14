@@ -11,6 +11,7 @@ type Commands struct {
 	Usage       CommandUsage
 	Run         func(args []string)
 	Category    CommandType
+	Hide        bool
 
 	SubCommands []Commands
 }

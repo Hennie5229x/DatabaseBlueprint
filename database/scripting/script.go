@@ -17,6 +17,9 @@ import (
 
 const directory string = appinfo.ScriptDirectory
 
+/*
+Validate Flags by looking at the models.Commands flags
+*/
 func Script(args []string) {
 
 	var Argument string = ""
@@ -24,9 +27,11 @@ func Script(args []string) {
 		Argument = args[0]
 	}
 
-	startTime := time.Now()
-
-	clearScriptDirectory(directory)
+	var Flags string = ""
+	if len(args) > 1 {
+		Flags = args[1]
+		println(Flags)
+	}
 
 	// Get Connection
 	id, conn := connections.GetConnection(Argument)
@@ -39,6 +44,9 @@ func Script(args []string) {
 	if !yn {
 		return
 	}
+
+	startTime := time.Now()
+	clearScriptDirectory(directory)
 
 	db, _ := database.Connect(*conn)
 
