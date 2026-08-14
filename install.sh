@@ -5,6 +5,8 @@ APP_NAME="blue"
 REPOSITORY="Hennie5229x/DatabaseBlueprint"
 TARGET_DIR="${BLUE_INSTALL_DIR:-$HOME/.local/bin}"
 TARGET_BINARY="$TARGET_DIR/$APP_NAME"
+COMPLETION_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions"
+COMPLETION_FILE="$COMPLETION_DIR/$APP_NAME"
 
 # Ensure curl is available.
 if ! command -v curl >/dev/null 2>&1; then
@@ -78,6 +80,14 @@ fi
 chmod +x "$TEMP_FILE"
 mkdir -p "$TARGET_DIR"
 mv "$TEMP_FILE" "$TARGET_BINARY"
+
+mkdir -p "$COMPLETION_DIR"
+if "$TARGET_BINARY" completion bash >"$COMPLETION_FILE"; then
+    printf 'Installed bash completion to %s\n' "$COMPLETION_FILE"
+else
+    rm -f "$COMPLETION_FILE"
+    printf 'Warning: failed to install bash completion.\n' >&2
+fi
 
 # The temporary file has been moved successfully.
 trap - EXIT INT TERM

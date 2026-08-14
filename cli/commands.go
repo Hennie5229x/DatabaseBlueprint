@@ -3,6 +3,7 @@ package cli
 import (
 	"blueprint/connections"
 	conn_crud "blueprint/connections/crud"
+	"fmt"
 
 	"blueprint/database/scripting"
 	"blueprint/models"
@@ -18,12 +19,18 @@ var Commands = []models.Commands{
 		Category:    models.System,
 	},
 	{
+		Name:        "completion",
+		Description: "Generate shell completion scripts",
+		Run:         Completion,
+		Category:    models.System,
+	},
+	// ---- Connections ----
+	{
 		Name:        "list",
 		Description: "Lists database connections",
 		Run:         conn_crud.List,
 		Category:    models.Connections,
 	},
-	// ---- Connections ----
 	{
 		Name:        "test",
 		Description: "Test the database connection",
@@ -74,19 +81,37 @@ var Commands = []models.Commands{
 		Category:    models.Database,
 	},
 
-	/*{
-		Name:        "table",
+	{
+		Name:        "test1",
 		Description: "",
-		Category:    models.Database,
+		Category:    models.Test,
 		SubCommands: []models.Commands{
 			{
-				Name:        "columns",
-				Description: "List table columns",
-				Run:         discovery.GetColumns,
+				Name:        "test2a",
+				Description: "",
+				Run:         testFunc,
+				SubCommands: []models.Commands{
+					{
+						Name:        "test3",
+						Description: "",
+						Run:         testFunc,
+						SubCommands: []models.Commands{
+							{
+								Name:        "test4",
+								Description: "",
+								Run:         testFunc,
+							},
+						},
+					},
+				},
+			},
+			{
+				Name:        "test2b",
+				Description: "",
+				Run:         testFunc,
 			},
 		},
 	},
-	*/
 }
 
 /*
@@ -119,3 +144,7 @@ var Commands = []models.Commands{
 			},
 		},
 	}, */
+
+func testFunc(args []string) {
+	fmt.Println("TEST", args)
+}

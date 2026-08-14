@@ -6,4 +6,6 @@ const (
 	System      CommandType = "system"
 	Connections CommandType = "connections"
 	Database    CommandType = "database"
+
+	Test CommandType = "test"
 )
