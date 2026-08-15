@@ -5,6 +5,5 @@ import (
 )
 
 func main() {
-	cli.Flags()   // Handle flags
-	cli.Execute() // Handle input Commands
+	cli.Execute()
 }

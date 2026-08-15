@@ -17,9 +17,6 @@ import (
 
 const directory string = appinfo.ScriptDirectory
 
-/*
-Validate Flags by looking at the models.Commands flags
-*/
 func Script(input models.CommandInput) {
 
 	var Argument string = ""

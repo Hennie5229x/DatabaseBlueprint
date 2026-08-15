@@ -1,188 +1,152 @@
 package cli
 
 import (
+	"blueprint/appinfo"
 	"blueprint/connections"
-	conn_crud "blueprint/connections/crud"
-	"fmt"
-
+	connCrud "blueprint/connections/crud"
 	"blueprint/database/scripting"
 	"blueprint/models"
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
 )
 
-var Commands = []models.Commands{
-
-	// ---- System ----
-	{
-		Name:        "version",
-		Description: "Shows application version",
-		Run:         Version,
-		Category:    models.System,
-	},
-	{
-		Name:        "completion",
-		Description: "Generate shell completion scripts",
-		Run:         Completion,
-		Category:    models.System,
-		Hide:        true,
-	},
-	// ---- Connections ----
-	{
-		Name:        "list",
-		Description: "Lists database connections",
-		Run:         conn_crud.List,
-		Category:    models.Connections,
-	},
-	{
-		Name:        "test",
-		Description: "Test the database connection",
-		Run:         connections.Test,
-		Category:    models.Connections,
-
-		Usage: models.CommandUsage{
-			Arguments: []models.UsageItem{
-				{
-					Name:        "connection-name",
-					Description: "Name of a saved connection",
-				},
-			},
-			Flags: []models.Flag{
-				{
-					Key:         "help",
-					Names:       []string{"-h", "--help"},
-					Description: "Show usage and examples",
-				},
-			},
-			Examples: []string{
-				"blue test Production",
-			},
-		},
-	},
-	{
-		Name:        "add",
-		Description: "Add a database connection",
-		Run:         conn_crud.Add,
-		Category:    models.Connections,
-	},
-	{
-		Name:        "edit",
-		Description: "Edit a database connection",
-		Run:         conn_crud.Edit,
-		Category:    models.Connections,
-
-		Usage: models.CommandUsage{
-			Arguments: []models.UsageItem{
-				{
-					Name:        "connection-name",
-					Description: "Name of a saved connection",
-				},
-			},
-			Flags: []models.Flag{
-				{
-					Key:         "help",
-					Names:       []string{"-h", "--help"},
-					Description: "Show usage and examples",
-				},
-			},
-			Examples: []string{
-				"blue edit Production",
-			},
-		},
-	},
-	{
-		Name:        "delete",
-		Description: "Delete a database connection",
-		Run:         conn_crud.Delete,
-		Category:    models.Connections,
-
-		Usage: models.CommandUsage{
-			Arguments: []models.UsageItem{
-				{
-					Name:        "connection-name",
-					Description: "Name of a saved connection",
-				},
-			},
-			Flags: []models.Flag{
-				{
-					Key:         "help",
-					Names:       []string{"-h", "--help"},
-					Description: "Show usage and examples",
-				},
-			},
-			Examples: []string{
-				"blue delete Production",
-			},
-		},
-	},
-	// ---- Database ----
-	{
-		Name:        "script",
-		Description: "Script database objects",
-		Run:         scripting.Script,
-		Category:    models.Database,
-
-		Usage: models.CommandUsage{
-			Arguments: []models.UsageItem{
-				{
-					Name:        "connection-name",
-					Description: "Name of a saved connection",
-				},
-			},
-			Flags: []models.Flag{
-				{
-					Key:         "help",
-					Names:       []string{"-h", "--help"},
-					Description: "Show usage and examples",
-				},
-				{
-					Key:         "data-only",
-					Names:       []string{"--data-only", "-do"},
-					Description: "Script data only",
-				},
-				{
-					Key:         "schema-only",
-					Names:       []string{"--schema-only", "-so"},
-					Description: "Script schema only",
-				},
-			},
-			Examples: []string{
-				"blue script Production",
-				"blue script Production --data-only",
-			},
-		},
-	},
+func Version(input models.CommandInput) {
+	fmt.Printf("%s %s\n", appinfo.Name, appinfo.Version)
 }
 
-/*
-	SubCommands: []models.Commands{
-		{
-			Name:        "test",
-			Description: "Test the database connection",
-			Run:         connections.TestConnection, //connections.TestConnection,
+func newVersionCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:     "version",
+		Short:   "Shows application version",
+		Args:    cobra.NoArgs,
+		GroupID: "system",
+		Run: func(cmd *cobra.Command, args []string) {
+			Version(emptyInput())
 		},
-		{
-			Name:        "add",
-			Description: "Add a database connection",
-			Run:         connections.AddConnections,
-		},
-		{
-			Name:        "edit",
-			Description: "Edit a database connection",
-			Run:         List,
-		},
-		{
-			Name:        "delete",
-			Description: "Delete a database connection",
-			Run:         List,
-			SubCommands: []models.Commands{
-				{
-					Name:        "subsub",
-					Description: "sub sub sub sub",
-					Run:         List,
-				},
-			},
-		},
-	}, */
+	}
+}
 
-func testFunc(input models.CommandInput) {
-	fmt.Println("TEST", input.RawArgs)
+func newCompletionCommand(rootCmd *cobra.Command) *cobra.Command {
+	return &cobra.Command{
+		Use:     "completion [bash|zsh|fish|powershell]",
+		Short:   "Generate shell completion scripts",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "system",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			switch args[0] {
+			case "bash":
+				return rootCmd.GenBashCompletion(os.Stdout)
+			case "zsh":
+				return rootCmd.GenZshCompletion(os.Stdout)
+			case "fish":
+				return rootCmd.GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				return rootCmd.GenPowerShellCompletion(os.Stdout)
+			default:
+				return fmt.Errorf("unsupported shell: %s", args[0])
+			}
+		},
+	}
+}
+
+func newListCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:     "list",
+		Short:   "Lists database connections",
+		Args:    cobra.NoArgs,
+		GroupID: "connections",
+		Run: func(cmd *cobra.Command, args []string) {
+			connCrud.List(emptyInput())
+		},
+	}
+}
+
+func newAddCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:     "add",
+		Short:   "Add a database connection",
+		Args:    cobra.NoArgs,
+		GroupID: "connections",
+		Run: func(cmd *cobra.Command, args []string) {
+			connCrud.Add(emptyInput())
+		},
+	}
+}
+
+func newEditCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:     "edit <connection-name>",
+		Short:   "Edit a database connection",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "connections",
+		Run: func(cmd *cobra.Command, args []string) {
+			connCrud.Edit(inputFromArgs(args))
+		},
+	}
+}
+
+func newDeleteCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:     "delete <connection-name>",
+		Short:   "Delete a database connection",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "connections",
+		Run: func(cmd *cobra.Command, args []string) {
+			connCrud.Delete(inputFromArgs(args))
+		},
+	}
+}
+
+func newTestCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:     "test <connection-name>",
+		Short:   "Test the database connection",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "connections",
+		Run: func(cmd *cobra.Command, args []string) {
+			connections.Test(inputFromArgs(args))
+		},
+	}
+}
+
+func newScriptCommand() *cobra.Command {
+	var dataOnly bool
+	var schemaOnly bool
+
+	cmd := &cobra.Command{
+		Use:     "script <connection-name>",
+		Short:   "Script database objects",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "database",
+		Run: func(cmd *cobra.Command, args []string) {
+			scripting.Script(models.CommandInput{
+				RawArgs:   args,
+				Arguments: args,
+				Flags: map[string]bool{
+					"data-only":   dataOnly,
+					"schema-only": schemaOnly,
+				},
+			})
+		},
+	}
+
+	cmd.Flags().BoolVar(&dataOnly, "data-only", false, "Script data only")
+	cmd.Flags().BoolVar(&schemaOnly, "schema-only", false, "Script schema only")
+	cmd.MarkFlagsMutuallyExclusive("data-only", "schema-only")
+
+	return cmd
+}
+
+func emptyInput() models.CommandInput {
+	return models.CommandInput{Flags: map[string]bool{}}
+}
+
+func inputFromArgs(args []string) models.CommandInput {
+	return models.CommandInput{
+		RawArgs:   args,
+		Arguments: args,
+		Flags:     map[string]bool{},
+	}
 }
