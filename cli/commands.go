@@ -135,8 +135,13 @@ var Commands = []models.Commands{
 				},
 				{
 					Key:         "data-only",
-					Names:       []string{"--data-only"},
+					Names:       []string{"--data-only", "-do"},
 					Description: "Script data only",
+				},
+				{
+					Key:         "schema-only",
+					Names:       []string{"--schema-only", "-so"},
+					Description: "Script schema only",
 				},
 			},
 			Examples: []string{

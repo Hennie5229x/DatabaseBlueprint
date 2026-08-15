@@ -26,9 +26,13 @@ func Script(input models.CommandInput) {
 	if len(input.Arguments) > 0 {
 		Argument = input.Arguments[0]
 	}
-
+	// Flags
 	dataOnly := input.Flags["data-only"]
-	_ = dataOnly
+	schemaOnly := input.Flags["schema-only"]
+	if dataOnly && schemaOnly {
+		fmt.Println("Cannot use --data-only and --schema-only together")
+		return
+	}
 
 	// Get Connection
 	id, conn := connections.GetConnection(Argument)
@@ -51,7 +55,7 @@ func Script(input models.CommandInput) {
 
 	switch conn.Type {
 	case models.SqlServer:
-		Script_SQLServer(db, conn.Database)
+		Script_SQLServer(db, conn.Database, dataOnly, schemaOnly)
 	case models.MySql:
 		Script_MySQL()
 	case models.PostgreSql:
@@ -63,16 +67,21 @@ func Script(input models.CommandInput) {
 	fmt.Printf("\nTotal time: %.2fs\n", time.Since(startTime).Seconds())
 }
 
-func Script_SQLServer(db *gorm.DB, databaseName string) {
-	discoverysqlserver.UserDefinedTypes(db, directory)
-	discoverysqlserver.Tables(db, directory)
-	discoverysqlserver.TableTypes(db, directory)
-	discoverysqlserver.ForeignKeys(db, directory)
-	discoverysqlserver.Views(db, directory)
-	discoverysqlserver.Functions(db, directory)
-	discoverysqlserver.Procedures(db, directory)
-	discoverysqlserver.GenerateRunOrder(db, directory, databaseName)
-	discoverysqlserver.TableData(db, directory)
+func Script_SQLServer(db *gorm.DB, databaseName string, dataOnly bool, schemaOnly bool) {
+
+	if !dataOnly {
+		discoverysqlserver.UserDefinedTypes(db, directory)
+		discoverysqlserver.Tables(db, directory)
+		discoverysqlserver.TableTypes(db, directory)
+		discoverysqlserver.ForeignKeys(db, directory)
+		discoverysqlserver.Views(db, directory)
+		discoverysqlserver.Functions(db, directory)
+		discoverysqlserver.Procedures(db, directory)
+		discoverysqlserver.GenerateRunOrder(db, directory, databaseName)
+	}
+	if !schemaOnly {
+		discoverysqlserver.TableData(db, directory)
+	}
 }
 func Script_MySQL() {
 

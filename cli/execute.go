@@ -128,11 +128,12 @@ func Help() {
 		for _, cmd := range Commands {
 			if cats == string(cmd.Category) && !cmd.Hide {
 				if cats == string(models.System) { //Append Help manually
-					fmt.Printf("%-20s %s\n", "help", "(List of all commands)")
+					fmt.Printf("%-25s %s\n", "help", "(List of all commands)")
 				}
-				fmt.Printf("%-20s %s\n", cmd.Name, "("+cmd.Description+")")
+				fmt.Printf("%-25s %s\n", cmd.Name, "("+cmd.Description+")")
 
 				printSubCommands(cmd, "")
+				printFlags(cmd.Usage.Flags)
 			}
 		}
 	}
@@ -145,6 +146,15 @@ const (
 	pipe   = "│   "
 	space  = "    "
 )
+
+func printFlags(flags []models.Flag) {
+	for _, f := range flags {
+		if f.Key != "help" {
+			names := strings.Join(f.Names, ", ")
+			fmt.Printf("  %-23s (%s)\n", names, f.Description)
+		}
+	}
+}
 
 func printSubCommands(parentCmd models.Commands, currentIndent string) {
 	count := len(parentCmd.SubCommands)
