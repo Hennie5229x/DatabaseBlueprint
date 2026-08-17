@@ -84,6 +84,8 @@ mv "$TEMP_FILE" "$TARGET_BINARY"
 mkdir -p "$COMPLETION_DIR"
 if "$TARGET_BINARY" completion bash >"$COMPLETION_FILE"; then
     printf 'Installed bash completion to %s\n' "$COMPLETION_FILE"
+    printf 'Restart your shell, or reload completion with:\n'
+    printf '  complete -r %s 2>/dev/null || true; source "%s"\n' "$APP_NAME" "$COMPLETION_FILE"
 else
     rm -f "$COMPLETION_FILE"
     printf 'Warning: failed to install bash completion.\n' >&2

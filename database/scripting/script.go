@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const directory string = appinfo.ScriptDirectory
+var directory string = appinfo.ScriptDirectory
 
 func Script(input models.CommandInput) {
 
@@ -36,6 +36,7 @@ func Script(input models.CommandInput) {
 	if id == "" || conn == nil {
 		return
 	}
+	directory = conn.Name
 
 	var yn bool = AskYesNo(fmt.Sprintf("Do you want to script %s?", Argument), true)
 
