@@ -556,5 +556,8 @@ func sqlServerIndexSortKey(group indexGroup) string {
 
 func sqlServerSynonymsDefinition(synonyms sqlserver_models.Synonyms) string {
 	return fmt.Sprintf("CREATE SYNONYM %s.%s\nFOR %s\n", synonyms.SchemaName, synonyms.SynonymName, synonyms.BaseObjectName)
+}
 
+func sqlServerSchemaDefinition(schema sqlserver_models.Schemas) string {
+	return fmt.Sprintf("CREATE SCHEMA [%s]", schema.Name)
 }

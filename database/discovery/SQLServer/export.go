@@ -58,6 +58,15 @@ func BuildSynonymsScript(synonyms sqlserver_models.Synonyms) string {
 	return synonymsDefinition
 }
 
+func BuildSchemaScript(schema sqlserver_models.Schemas) string {
+	schemasDefinition := sqlServerSchemaDefinition(schema)
+	if len(schemasDefinition) == 0 {
+		return ""
+	}
+
+	return schemasDefinition
+}
+
 func BuildTableTypeScript(db gorm.DB, tableType sqlserver_models.UserDefinedTableType) string {
 	columns := TableTypeColumns(&db, tableType)
 	keys := TableTypeKeys(&db, tableType)
@@ -252,6 +261,29 @@ func ScriptSynonyms(db gorm.DB, directory string, synonyms []sqlserver_models.Sy
 			return err
 		}
 		if err := os.WriteFile(functionsPath, []byte(synonymDefinition), 0o644); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ScriptSchemas(db gorm.DB, directory string, schemas []sqlserver_models.Schemas, onProgress func(index int, total int, sch sqlserver_models.Schemas)) error {
+	var schemasDefinition string = ""
+
+	for index, s := range schemas {
+		if onProgress != nil {
+			onProgress(index, len(schemas), s)
+		}
+
+		schemasDefinition = BuildSchemaScript(s)
+
+		// Schemas
+		functionsPath := filepath.Join(directory, "Schemas", fmt.Sprintf("%s.%s", s.Name, "sql"))
+		if err := os.MkdirAll(filepath.Dir(functionsPath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(functionsPath, []byte(schemasDefinition), 0o644); err != nil {
 			return err
 		}
 	}

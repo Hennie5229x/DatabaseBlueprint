@@ -225,3 +225,7 @@ type Synonyms struct {
 	SynonymName    string
 	BaseObjectName string
 }
+
+type Schemas struct {
+	Name string
+}
