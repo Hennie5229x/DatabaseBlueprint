@@ -553,3 +553,8 @@ func sqlServerIndexSortKey(group indexGroup) string {
 
 	return strings.Join(parts, "|")
 }
+
+func sqlServerSynonymsDefinition(synonyms sqlserver_models.Synonyms) string {
+	return fmt.Sprintf("CREATE SYNONYM %s.%s\nFOR %s\n", synonyms.SchemaName, synonyms.SynonymName, synonyms.BaseObjectName)
+
+}

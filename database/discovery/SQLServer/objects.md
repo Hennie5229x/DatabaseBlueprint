@@ -29,7 +29,7 @@ function used by a table default must be created before that table.
 - [x] Alias user-defined data types
 - [x] User-defined table types
 - [ ] Sequences
-- [ ] Synonyms
+- [x] Synonyms
 - [x] Tables
   - [x] Columns and computed columns
   - [x] Default constraints

@@ -219,3 +219,9 @@ type Dependency struct {
 	Type     string `json:"-"`
 	File     string `json:"-"`
 }
+
+type Synonyms struct {
+	SchemaName     string
+	SynonymName    string
+	BaseObjectName string
+}

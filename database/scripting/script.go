@@ -68,6 +68,7 @@ func Script(input models.CommandInput) {
 func Script_SQLServer(db *gorm.DB, databaseName string, dataOnly bool, schemaOnly bool) {
 
 	if !dataOnly {
+		discoverysqlserver.Synonyms(db, directory)
 		discoverysqlserver.UserDefinedTypes(db, directory)
 		discoverysqlserver.Tables(db, directory)
 		discoverysqlserver.TableTypes(db, directory)

@@ -49,6 +49,15 @@ func BuildForeignKeyScript(foreignKeys []sqlserver_models.ForeignKeyColumn) stri
 	return foreignKeyStatements[0] + fmt.Sprintln("")
 }
 
+func BuildSynonymsScript(synonyms sqlserver_models.Synonyms) string {
+	synonymsDefinition := sqlServerSynonymsDefinition(synonyms)
+	if len(synonymsDefinition) == 0 {
+		return ""
+	}
+
+	return synonymsDefinition
+}
+
 func BuildTableTypeScript(db gorm.DB, tableType sqlserver_models.UserDefinedTableType) string {
 	columns := TableTypeColumns(&db, tableType)
 	keys := TableTypeKeys(&db, tableType)
@@ -220,6 +229,29 @@ func ScriptProcedures(db gorm.DB, directory string, procedures []sqlserver_model
 			return err
 		}
 		if err := os.WriteFile(procPath, []byte(procDefinition), 0o644); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ScriptSynonyms(db gorm.DB, directory string, synonyms []sqlserver_models.Synonyms, onProgress func(index int, total int, syn sqlserver_models.Synonyms)) error {
+	var synonymDefinition string = ""
+
+	for index, sy := range synonyms {
+		if onProgress != nil {
+			onProgress(index, len(synonyms), sy)
+		}
+
+		synonymDefinition = BuildSynonymsScript(sy)
+
+		// Functions
+		functionsPath := filepath.Join(directory, "Synonyms", fmt.Sprintf("%s.%s.%s", sy.SchemaName, sy.SynonymName, "sql"))
+		if err := os.MkdirAll(filepath.Dir(functionsPath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(functionsPath, []byte(synonymDefinition), 0o644); err != nil {
 			return err
 		}
 	}
