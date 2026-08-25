@@ -80,6 +80,14 @@ func BuildUserDefinedTypeScript(userDefinedType sqlserver_models.UserDefinedType
 	return GenerateCreateUserDefinedType(userDefinedType)
 }
 
+func BuildSequenceScript(sequence sqlserver_models.Sequences) string {
+	return GenerateCreateSequence(sequence)
+}
+
+func BuildTriggerScript(trigger sqlserver_models.Triggers) string {
+	return GenerateCreateTrigger(trigger)
+}
+
 func ScriptTables(db gorm.DB, directory string, tables []discoverymodels.Tables, onProgress func(index int, total int, table discoverymodels.Tables)) error {
 
 	for index, table := range tables {
@@ -134,6 +142,25 @@ func ScriptUserDefinedTypes(directory string, userDefinedTypes []sqlserver_model
 			return err
 		}
 		if err := os.WriteFile(userDefinedTypePath, []byte(userDefinedTypeDefinition), 0o644); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ScriptSequences(db gorm.DB, directory string, sequences []sqlserver_models.Sequences, onProgress func(index int, total int, sequence sqlserver_models.Sequences)) error {
+	for index, sequence := range sequences {
+		if onProgress != nil {
+			onProgress(index, len(sequences), sequence)
+		}
+
+		sequenceDefinition := BuildSequenceScript(sequence)
+		sequencePath := filepath.Join(directory, "Sequences", fmt.Sprintf("%s.%s.%s", sequence.SchemaName, sequence.SequenceName, "sql"))
+		if err := os.MkdirAll(filepath.Dir(sequencePath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(sequencePath, []byte(sequenceDefinition), 0o644); err != nil {
 			return err
 		}
 	}
@@ -238,6 +265,28 @@ func ScriptProcedures(db gorm.DB, directory string, procedures []sqlserver_model
 			return err
 		}
 		if err := os.WriteFile(procPath, []byte(procDefinition), 0o644); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ScriptTriggers(db gorm.DB, directory string, triggers []sqlserver_models.Triggers, onProgress func(index int, total int, trigger sqlserver_models.Triggers)) error {
+	var triggerDefinition string = ""
+
+	for index, trigger := range triggers {
+		if onProgress != nil {
+			onProgress(index, len(triggers), trigger)
+		}
+
+		triggerDefinition = BuildTriggerScript(trigger)
+
+		triggerPath := filepath.Join(directory, "Triggers", fmt.Sprintf("%s.%s.%s", trigger.SchemaName, trigger.TriggerName, "sql"))
+		if err := os.MkdirAll(filepath.Dir(triggerPath), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(triggerPath, []byte(triggerDefinition), 0o644); err != nil {
 			return err
 		}
 	}

@@ -226,6 +226,33 @@ type Synonyms struct {
 	BaseObjectName string
 }
 
+type Sequences struct {
+	SchemaName         string
+	SequenceName       string
+	DataTypeSchemaName string
+	DataType           string
+	Precision          int
+	Scale              int
+	StartValue         string
+	IncrementBy        string
+	MinValue           string
+	MaxValue           string
+	IsCycling          bool
+	IsCached           bool
+	CacheSize          *int
+}
+
+type Triggers struct {
+	SchemaName          string
+	TableSchemaName     string
+	TableName           string
+	TriggerName         string
+	Definition          string
+	IsInsteadOf         bool
+	IsDisabled          bool
+	IsNotForReplication bool
+}
+
 type Schemas struct {
 	Name string
 }

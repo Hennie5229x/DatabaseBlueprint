@@ -25,10 +25,10 @@ function used by a table default must be created before that table.
 
 ## Export coverage
 
-- [ ] Schemas
+- [x] Schemas
 - [x] Alias user-defined data types
 - [x] User-defined table types
-- [ ] Sequences
+- [x] Sequences
 - [x] Synonyms
 - [x] Tables
   - [x] Columns and computed columns
@@ -43,7 +43,7 @@ function used by a table default must be created before that table.
 - [x] Multi-statement table-valued functions
 - [x] Views
 - [x] Stored procedures
-- [ ] DML triggers
+- [x] DML triggers
 - [x] Table data
 
 ## Explicitly out of scope for now

@@ -69,14 +69,16 @@ func Script_SQLServer(db *gorm.DB, databaseName string, dataOnly bool, schemaOnl
 
 	if !dataOnly {
 		discoverysqlserver.Schemas(db, directory)
-		discoverysqlserver.Synonyms(db, directory)
 		discoverysqlserver.UserDefinedTypes(db, directory)
-		discoverysqlserver.Tables(db, directory)
 		discoverysqlserver.TableTypes(db, directory)
+		discoverysqlserver.Sequences(db, directory)
+		discoverysqlserver.Synonyms(db, directory)
+		discoverysqlserver.Tables(db, directory)
 		discoverysqlserver.ForeignKeys(db, directory)
 		discoverysqlserver.Views(db, directory)
 		discoverysqlserver.Functions(db, directory)
 		discoverysqlserver.Procedures(db, directory)
+		discoverysqlserver.Triggers(db, directory)
 		discoverysqlserver.GenerateRunOrder(db, directory, databaseName)
 	}
 	if !schemaOnly {

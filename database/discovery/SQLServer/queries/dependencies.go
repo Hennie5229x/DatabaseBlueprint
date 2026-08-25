@@ -26,7 +26,9 @@ func SqlServerDependencies(db *gorm.DB) ([]models.DependencyRow, error) {
 									'IF',  -- Inline table-valued function
 									'TF',  -- Multi-statement table-valued function
 									'P',   -- Stored procedure
-									'TT'   -- User-defined table type
+									'TT',  -- User-defined table type
+									'SO',  -- Sequence object
+									'TR'   -- DML trigger
 								)
 		)
 		SELECT 		DISTINCT
