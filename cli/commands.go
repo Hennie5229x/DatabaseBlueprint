@@ -4,6 +4,7 @@ import (
 	"blueprint/appinfo"
 	"blueprint/connections"
 	connCrud "blueprint/connections/crud"
+	"blueprint/database/creating"
 	"blueprint/database/scripting"
 	"blueprint/models"
 	"fmt"
@@ -155,6 +156,43 @@ func ScriptCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&password, "password", "p", "", "Password override value")
 
 	cmd.MarkFlagsMutuallyExclusive("data-only", "schema-only")
+
+	return cmd
+}
+
+func CreateCommand() *cobra.Command {
+	var server string
+	var port string
+	var database string
+	var user string
+	var password string
+
+	cmd := &cobra.Command{
+		Use:     "create <connection-name>",
+		Short:   "Create database from exported scripts",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "database",
+		Run: func(cmd *cobra.Command, args []string) {
+			creating.Create(models.CommandInput{
+				RawArgs:   args,
+				Arguments: args,
+				StringFlags: map[string]string{
+					"server":   server,
+					"port":     port,
+					"database": database,
+					"user":     user,
+					"password": password,
+				},
+				Flags: map[string]bool{},
+			})
+		},
+	}
+
+	cmd.Flags().StringVarP(&server, "server", "s", "", "Server override value")
+	cmd.Flags().StringVarP(&port, "port", "", "", "Port override value")
+	cmd.Flags().StringVarP(&database, "database", "d", "", "Database override value")
+	cmd.Flags().StringVarP(&user, "user", "u", "", "User override value")
+	cmd.Flags().StringVarP(&password, "password", "p", "", "Password override value")
 
 	return cmd
 }

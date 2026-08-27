@@ -15,6 +15,10 @@ import (
 )
 
 func SQLServerConnect(conn models.Connection) (*gorm.DB, error) {
+	return SQLServerConnectToDatabase(conn, conn.Database)
+}
+
+func SQLServerConnectToDatabase(conn models.Connection, databaseName string) (*gorm.DB, error) {
 	// github.com/denisenkom/go-mssqldb
 
 	host := conn.Server
@@ -26,7 +30,7 @@ func SQLServerConnect(conn models.Connection) (*gorm.DB, error) {
 		url.QueryEscape(conn.User),
 		url.QueryEscape(conn.Password),
 		host,
-		url.QueryEscape(conn.Database),
+		url.QueryEscape(databaseName),
 	)
 
 	logger := gormlogger.New(

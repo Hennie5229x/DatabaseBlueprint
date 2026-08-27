@@ -45,6 +45,7 @@ func newRootCommand() *cobra.Command {
 		DeleteCommand(),
 		TestCommand(),
 		ScriptCommand(),
+		CreateCommand(),
 	)
 
 	return rootCmd

@@ -26,6 +26,9 @@ func generateRunOrder(db *gorm.DB, outputDirectory string, databaseName string) 
 	}
 
 	objectGraph := BuildObjectGraph(dependencyRows)
+	if err := AddFileDependencies(outputDirectory, objectGraph); err != nil {
+		return fmt.Errorf("add SQL Server file dependencies: %w", err)
+	}
 
 	orderedObjects, err := BuildCreationOrder(objectGraph)
 	if err != nil {
@@ -59,6 +62,42 @@ func queryObjectDependencies(db *gorm.DB) ([]sqlservermodels.DependencyRow, erro
 
 func BuildObjectGraph(rows []sqlservermodels.DependencyRow) map[int]*sqlservermodels.DatabaseObject {
 	return BuildObjectDAG(rows)
+}
+
+func AddFileDependencies(outputDirectory string, objects map[int]*sqlservermodels.DatabaseObject) error {
+	objectsByFile := make(map[string]*sqlservermodels.DatabaseObject, len(objects))
+	matchers := make(map[int]sqlObjectMatcher, len(objects))
+	for _, object := range objects {
+		objectsByFile[runOrderFilePath(*object)] = object
+		matcher, err := newSQLObjectMatcher(object.Schema, object.Name)
+		if err != nil {
+			return err
+		}
+		matchers[object.ID] = matcher
+	}
+
+	for file, object := range objectsByFile {
+		contents, err := os.ReadFile(filepath.Join(outputDirectory, file))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+
+		text := normalizeSQLText(string(contents))
+		for dependencyID, matcher := range matchers {
+			if dependencyID == object.ID {
+				continue
+			}
+
+			if matcher.matches(text) {
+				object.DependsOn[dependencyID] = struct{}{}
+			}
+		}
+	}
+
+	return nil
 }
 
 func BuildObjectDAG(rows []sqlservermodels.DependencyRow) map[int]*sqlservermodels.DatabaseObject {
@@ -214,37 +253,30 @@ func BuildRunOrderFile(outputDirectory string, orderedObjects []sqlservermodels.
 
 	runOrder := make(sqlservermodels.RunOrderFile, 0, len(exportedFiles))
 	addedFiles := make(map[string]struct{}, len(exportedFiles))
+	objectByFile := make(map[string]*sqlservermodels.DatabaseObject, len(objectGraph))
+	for _, object := range objectGraph {
+		objectByFile[runOrderFilePath(*object)] = object
+	}
 
 	for _, directory := range runOrderDirectories() {
-		phaseFiles := exportedFiles[directory]
+		phaseFiles, err := orderPhaseFiles(outputDirectory, exportedFiles[directory])
+		if err != nil {
+			return nil, err
+		}
 		if len(phaseFiles) == 0 {
 			continue
 		}
 
-		phaseFileSet := make(map[string]struct{}, len(phaseFiles))
 		for _, file := range phaseFiles {
-			phaseFileSet[file] = struct{}{}
-		}
-
-		for _, orderedObject := range orderedObjects {
-			file := runOrderFilePath(orderedObject.DatabaseObject)
-			if _, exists := phaseFileSet[file]; !exists {
-				continue
-			}
 			if _, exists := addedFiles[file]; exists {
 				continue
 			}
 
-			runOrder = append(runOrder, runOrderObject(orderedObject.DatabaseObject, file, len(runOrder)+1))
-			addedFiles[file] = struct{}{}
-		}
-
-		for _, file := range exportedFiles[directory] {
-			if _, exists := addedFiles[file]; exists {
-				continue
+			if object := objectByFile[file]; object != nil {
+				runOrder = append(runOrder, runOrderObject(*object, file, len(runOrder)+1))
+			} else {
+				runOrder = append(runOrder, runOrderObjectFromFile(directory, file, len(runOrder)+1))
 			}
-
-			runOrder = append(runOrder, runOrderObjectFromFile(directory, file, len(runOrder)+1))
 			addedFiles[file] = struct{}{}
 		}
 	}
@@ -319,6 +351,84 @@ func exportedRunOrderFiles(outputDirectory string) (map[string][]string, error) 
 	return filesByDirectory, nil
 }
 
+func orderPhaseFiles(outputDirectory string, files []string) ([]string, error) {
+	if len(files) < 2 {
+		return files, nil
+	}
+
+	phaseObjects := make([]runOrderFileObject, 0, len(files))
+	matchers := make([]sqlObjectMatcher, 0, len(files))
+	for _, file := range files {
+		object := runOrderFileObjectFromPath(file)
+		phaseObjects = append(phaseObjects, object)
+		matcher, err := newSQLObjectMatcher(object.Schema, object.Name)
+		if err != nil {
+			return nil, err
+		}
+		matchers = append(matchers, matcher)
+	}
+
+	fileSet := make(map[string]struct{}, len(files))
+	dependants := make(map[string][]string)
+	unresolvedDependencies := make(map[string]int, len(files))
+	for _, file := range files {
+		fileSet[file] = struct{}{}
+		unresolvedDependencies[file] = 0
+	}
+
+	for _, file := range files {
+		contents, err := os.ReadFile(filepath.Join(outputDirectory, file))
+		if err != nil {
+			return nil, err
+		}
+		text := normalizeSQLText(string(contents))
+
+		for index, dependency := range phaseObjects {
+			dependencyFile := dependency.File
+			if dependencyFile == file {
+				continue
+			}
+			if _, exists := fileSet[dependencyFile]; !exists {
+				continue
+			}
+
+			if matchers[index].matches(text) {
+				unresolvedDependencies[file]++
+				dependants[dependencyFile] = append(dependants[dependencyFile], file)
+			}
+		}
+	}
+
+	ready := make([]string, 0)
+	for _, file := range files {
+		if unresolvedDependencies[file] == 0 {
+			ready = append(ready, file)
+		}
+	}
+	sort.Strings(ready)
+
+	ordered := make([]string, 0, len(files))
+	for len(ready) > 0 {
+		file := ready[0]
+		ready = ready[1:]
+		ordered = append(ordered, file)
+
+		for _, dependant := range dependants[file] {
+			unresolvedDependencies[dependant]--
+			if unresolvedDependencies[dependant] == 0 {
+				ready = append(ready, dependant)
+			}
+		}
+		sort.Strings(ready)
+	}
+
+	if len(ordered) != len(files) {
+		return files, nil
+	}
+
+	return ordered, nil
+}
+
 func runOrderDirectories() []string {
 	return []string{
 		"Schemas",
@@ -370,6 +480,58 @@ func runOrderTypePriority(typeCode string) int {
 	}
 }
 
+func sqlTextReferencesObject(text string, schemaName string, objectName string) bool {
+	matcher, err := newSQLObjectMatcher(schemaName, objectName)
+	return err == nil && matcher.matches(normalizeSQLText(text))
+}
+
+type sqlObjectMatcher struct {
+	terms []string
+}
+
+func newSQLObjectMatcher(schemaName string, objectName string) (sqlObjectMatcher, error) {
+	terms := []string{
+		strings.ToLower(schemaName + "." + objectName),
+		strings.ToLower(objectName),
+	}
+
+	return sqlObjectMatcher{terms: terms}, nil
+}
+
+func (matcher sqlObjectMatcher) matches(text string) bool {
+	for _, term := range matcher.terms {
+		for offset := strings.Index(text, term); offset >= 0; {
+			end := offset + len(term)
+			if sqlIdentifierBoundary(text, offset-1) && sqlIdentifierBoundary(text, end) {
+				return true
+			}
+
+			next := strings.Index(text[end:], term)
+			if next < 0 {
+				break
+			}
+			offset = end + next
+		}
+	}
+
+	return false
+}
+
+func normalizeSQLText(text string) string {
+	return strings.ToLower(strings.NewReplacer("[", "", "]", "").Replace(text))
+}
+
+func sqlIdentifierBoundary(text string, index int) bool {
+	if index < 0 || index >= len(text) {
+		return true
+	}
+
+	character := text[index]
+	return !((character >= 'a' && character <= 'z') ||
+		(character >= '0' && character <= '9') ||
+		character == '_' || character == '#')
+}
+
 func runOrderObject(object sqlservermodels.DatabaseObject, file string, order int) sqlservermodels.RunOrderObject {
 	return sqlservermodels.RunOrderObject{
 		Order:    order,
@@ -389,6 +551,22 @@ func runOrderObjectFromFile(directory string, file string, order int) sqlserverm
 		File:  file,
 		Type:  directory,
 	}
+}
+
+type runOrderFileObject struct {
+	File   string
+	Schema string
+	Name   string
+}
+
+func runOrderFileObjectFromPath(file string) runOrderFileObject {
+	name := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+	parts := strings.SplitN(name, ".", 2)
+	if len(parts) != 2 {
+		return runOrderFileObject{File: file, Name: name}
+	}
+
+	return runOrderFileObject{File: file, Schema: parts[0], Name: parts[1]}
 }
 
 func runOrderFilePath(object sqlservermodels.DatabaseObject) string {
