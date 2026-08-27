@@ -78,10 +78,11 @@ func AddCommand() *cobra.Command {
 
 func EditCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:     "edit <connection-name>",
-		Short:   "Edit a database connection",
-		Args:    cobra.ExactArgs(1),
-		GroupID: "connections",
+		Use:               "edit <connection-name>",
+		Short:             "Edit a database connection",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: connectionNameCompletion,
+		GroupID:           "connections",
 		Run: func(cmd *cobra.Command, args []string) {
 			connCrud.Edit(inputFromArgs(args))
 		},
@@ -90,10 +91,11 @@ func EditCommand() *cobra.Command {
 
 func DeleteCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:     "delete <connection-name>",
-		Short:   "Delete a database connection",
-		Args:    cobra.ExactArgs(1),
-		GroupID: "connections",
+		Use:               "delete <connection-name>",
+		Short:             "Delete a database connection",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: connectionNameCompletion,
+		GroupID:           "connections",
 		Run: func(cmd *cobra.Command, args []string) {
 			connCrud.Delete(inputFromArgs(args))
 		},
@@ -102,10 +104,11 @@ func DeleteCommand() *cobra.Command {
 
 func TestCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:     "test <connection-name>",
-		Short:   "Test the database connection",
-		Args:    cobra.ExactArgs(1),
-		GroupID: "connections",
+		Use:               "test <connection-name>",
+		Short:             "Test the database connection",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: connectionNameCompletion,
+		GroupID:           "connections",
 		Run: func(cmd *cobra.Command, args []string) {
 			connections.Test(inputFromArgs(args))
 		},
@@ -123,10 +126,11 @@ func ScriptCommand() *cobra.Command {
 	var password string
 
 	cmd := &cobra.Command{
-		Use:     "script <connection-name>",
-		Short:   "Script database objects",
-		Args:    cobra.ExactArgs(1),
-		GroupID: "database",
+		Use:               "script <connection-name>",
+		Short:             "Script database objects",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: connectionNameCompletion,
+		GroupID:           "database",
 		Run: func(cmd *cobra.Command, args []string) {
 			scripting.Script(models.CommandInput{
 				RawArgs:   args,
@@ -168,10 +172,11 @@ func CreateCommand() *cobra.Command {
 	var password string
 
 	cmd := &cobra.Command{
-		Use:     "create <connection-name>",
-		Short:   "Create database from exported scripts",
-		Args:    cobra.ExactArgs(1),
-		GroupID: "database",
+		Use:               "create <connection-name>",
+		Short:             "Create database from exported scripts",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: connectionNameCompletion,
+		GroupID:           "database",
 		Run: func(cmd *cobra.Command, args []string) {
 			creating.Create(models.CommandInput{
 				RawArgs:   args,
