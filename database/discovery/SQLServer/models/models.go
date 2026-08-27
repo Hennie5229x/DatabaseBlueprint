@@ -200,16 +200,14 @@ type OrderedObject struct {
 type RunOrderFile []RunOrderObject
 
 type RunOrderObject struct {
-	Type           string   `json:"type"`
-	Name           string   `json:"name"`
-	File           string   `json:"file"`
-	DependsOnNames []string `json:"dependsOn,omitempty"`
+	Order int    `json:"order"`
+	Name  string `json:"name"`
+	File  string `json:"file"`
 
-	CreationOrder int          `json:"-"`
-	CreationLevel int          `json:"-"`
-	ObjectID      int          `json:"-"`
-	Schema        string       `json:"-"`
-	DependsOn     []Dependency `json:"-"`
+	Type      string       `json:"-"`
+	ObjectID  int          `json:"-"`
+	Schema    string       `json:"-"`
+	DependsOn []Dependency `json:"-"`
 }
 
 type Dependency struct {

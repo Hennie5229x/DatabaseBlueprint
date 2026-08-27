@@ -32,7 +32,10 @@ func generateRunOrder(db *gorm.DB, outputDirectory string, databaseName string) 
 		return fmt.Errorf("build SQL Server creation order: %w", err)
 	}
 
-	runOrder := BuildRunOrderFile(databaseName, orderedObjects, objectGraph)
+	runOrder, err := BuildRunOrderFile(outputDirectory, orderedObjects, objectGraph)
+	if err != nil {
+		return fmt.Errorf("build SQL Server run order file: %w", err)
+	}
 	if err := ValidateRunOrder(runOrder); err != nil {
 		return fmt.Errorf("validate SQL Server run order: %w", err)
 	}
@@ -130,11 +133,7 @@ func BuildCreationOrder(
 	}
 
 	sort.Slice(ready, func(i, j int) bool {
-		left := objects[ready[i]]
-		right := objects[ready[j]]
-
-		return left.Schema+"."+left.Name <
-			right.Schema+"."+right.Name
+		return runOrderObjectLess(objects[ready[i]], objects[ready[j]])
 	})
 
 	ordered := make([]sqlservermodels.OrderedObject, 0, len(objects))
@@ -169,16 +168,12 @@ func BuildCreationOrder(
 		}
 
 		sort.Slice(ready, func(i, j int) bool {
-			left := objects[ready[i]]
-			right := objects[ready[j]]
-
 			if creationLevel[ready[i]] != creationLevel[ready[j]] {
 				return creationLevel[ready[i]] <
 					creationLevel[ready[j]]
 			}
 
-			return left.Schema+"."+left.Name <
-				right.Schema+"."+right.Name
+			return runOrderObjectLess(objects[ready[i]], objects[ready[j]])
 		})
 	}
 
@@ -211,79 +206,67 @@ func BuildCreationOrder(
 	return ordered, nil
 }
 
-func BuildRunOrderFile(databaseName string, orderedObjects []sqlservermodels.OrderedObject, objectGraph map[int]*sqlservermodels.DatabaseObject) sqlservermodels.RunOrderFile {
-	runOrder := make(sqlservermodels.RunOrderFile, 0, len(orderedObjects))
+func BuildRunOrderFile(outputDirectory string, orderedObjects []sqlservermodels.OrderedObject, objectGraph map[int]*sqlservermodels.DatabaseObject) (sqlservermodels.RunOrderFile, error) {
+	exportedFiles, err := exportedRunOrderFiles(outputDirectory)
+	if err != nil {
+		return nil, err
+	}
+
+	runOrder := make(sqlservermodels.RunOrderFile, 0, len(exportedFiles))
+	addedFiles := make(map[string]struct{}, len(exportedFiles))
+
+	for _, directory := range []string{"Schemas", "DataTypes"} {
+		for _, file := range exportedFiles[directory] {
+			runOrder = append(runOrder, runOrderObjectFromFile(directory, file, len(runOrder)+1))
+			addedFiles[file] = struct{}{}
+		}
+	}
 
 	for _, orderedObject := range orderedObjects {
-		dependencies := make([]sqlservermodels.Dependency, 0, len(orderedObject.DependsOn))
-		dependencyNames := make([]string, 0, len(orderedObject.DependsOn))
-		for dependencyID := range orderedObject.DependsOn {
-			dependency, exists := objectGraph[dependencyID]
-			if !exists {
+		file := runOrderFilePath(orderedObject.DatabaseObject)
+		if _, exists := addedFiles[file]; exists {
+			continue
+		}
+		if !exportedFileExists(exportedFiles, file) {
+			continue
+		}
+
+		runOrder = append(runOrder, runOrderObject(orderedObject.DatabaseObject, file, len(runOrder)+1))
+		addedFiles[file] = struct{}{}
+	}
+
+	for _, directory := range runOrderDirectories() {
+		for _, file := range exportedFiles[directory] {
+			if _, exists := addedFiles[file]; exists {
 				continue
 			}
 
-			dependencies = append(dependencies, sqlservermodels.Dependency{
-				ObjectID: dependency.ID,
-				Schema:   dependency.Schema,
-				Name:     dependency.Name,
-				Type:     dependency.TypeCode,
-				File:     runOrderFilePath(*dependency),
-			})
+			runOrder = append(runOrder, runOrderObjectFromFile(directory, file, len(runOrder)+1))
+			addedFiles[file] = struct{}{}
 		}
-
-		sort.Slice(dependencies, func(i, j int) bool {
-			if dependencies[i].Schema != dependencies[j].Schema {
-				return dependencies[i].Schema < dependencies[j].Schema
-			}
-
-			return dependencies[i].Name < dependencies[j].Name
-		})
-		for _, dependency := range dependencies {
-			dependencyNames = append(dependencyNames, qualifiedObjectName(dependency.Schema, dependency.Name))
-		}
-
-		runOrder = append(runOrder, sqlservermodels.RunOrderObject{
-			Type:           orderedObject.TypeCode,
-			Name:           qualifiedObjectName(orderedObject.Schema, orderedObject.Name),
-			File:           runOrderFilePath(orderedObject.DatabaseObject),
-			DependsOnNames: dependencyNames,
-			CreationOrder:  orderedObject.CreationOrder,
-			CreationLevel:  orderedObject.CreationLevel,
-			ObjectID:       orderedObject.ID,
-			Schema:         orderedObject.Schema,
-			DependsOn:      dependencies,
-		})
 	}
 
-	return runOrder
+	return runOrder, nil
 }
 
 func ValidateRunOrder(runOrder sqlservermodels.RunOrderFile) error {
-	seenObjects := make(map[int]int, len(runOrder))
+	seenFiles := make(map[string]int, len(runOrder))
 
 	for index, object := range runOrder {
 		expectedOrder := index + 1
-		if object.CreationOrder != expectedOrder {
-			return fmt.Errorf("invalid run order for [%s].[%s]: expected creationOrder %d, got %d", object.Schema, object.Name, expectedOrder, object.CreationOrder)
+		if object.Order != expectedOrder {
+			return fmt.Errorf("invalid run order for %s: expected order %d, got %d", object.File, expectedOrder, object.Order)
 		}
 
-		if previousOrder, exists := seenObjects[object.ObjectID]; exists {
-			return fmt.Errorf("duplicate object in run order: objectId %d appears at creationOrder %d and %d", object.ObjectID, previousOrder, object.CreationOrder)
+		if object.File == "" {
+			return fmt.Errorf("invalid run order at order %d: file is empty", object.Order)
 		}
 
-		for _, dependency := range object.DependsOn {
-			dependencyOrder, exists := seenObjects[dependency.ObjectID]
-			if !exists {
-				return fmt.Errorf("invalid dependency order for [%s].[%s]: dependency [%s].[%s] must appear earlier", object.Schema, object.Name, dependency.Schema, dependency.Name)
-			}
-
-			if dependencyOrder >= object.CreationOrder {
-				return fmt.Errorf("invalid dependency order for [%s].[%s]: dependency [%s].[%s] appears at creationOrder %d", object.Schema, object.Name, dependency.Schema, dependency.Name, dependencyOrder)
-			}
+		if previousOrder, exists := seenFiles[object.File]; exists {
+			return fmt.Errorf("duplicate file in run order: %s appears at order %d and %d", object.File, previousOrder, object.Order)
 		}
 
-		seenObjects[object.ObjectID] = object.CreationOrder
+		seenFiles[object.File] = object.Order
 	}
 
 	return nil
@@ -306,9 +289,123 @@ func WriteRunOrder(path string, runOrder sqlservermodels.RunOrderFile) error {
 	return nil
 }
 
+func exportedRunOrderFiles(outputDirectory string) (map[string][]string, error) {
+	filesByDirectory := make(map[string][]string)
+
+	for _, directory := range runOrderDirectories() {
+		directoryPath := filepath.Join(outputDirectory, directory)
+		entries, err := os.ReadDir(directoryPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("read %s scripts: %w", directory, err)
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
+				continue
+			}
+
+			filesByDirectory[directory] = append(filesByDirectory[directory], filepath.ToSlash(filepath.Join(directory, entry.Name())))
+		}
+
+		sort.Strings(filesByDirectory[directory])
+	}
+
+	return filesByDirectory, nil
+}
+
+func runOrderDirectories() []string {
+	return []string{
+		"Schemas",
+		"DataTypes",
+		"TableTypes",
+		"Sequences",
+		"Synonyms",
+		"Functions",
+		"Tables",
+		"ForeignKeys",
+		"Views",
+		"Procedures",
+		"Triggers",
+	}
+}
+
+func exportedFileExists(exportedFiles map[string][]string, file string) bool {
+	for _, files := range exportedFiles {
+		index := sort.SearchStrings(files, file)
+		if index < len(files) && files[index] == file {
+			return true
+		}
+	}
+
+	return false
+}
+
+func runOrderObjectLess(left *sqlservermodels.DatabaseObject, right *sqlservermodels.DatabaseObject) bool {
+	leftPriority := runOrderTypePriority(left.TypeCode)
+	rightPriority := runOrderTypePriority(right.TypeCode)
+	if leftPriority != rightPriority {
+		return leftPriority < rightPriority
+	}
+
+	return left.Schema+"."+left.Name < right.Schema+"."+right.Name
+}
+
+func runOrderTypePriority(typeCode string) int {
+	switch typeCode {
+	case "TT":
+		return 10
+	case "SO":
+		return 20
+	case "SN":
+		return 30
+	case "FN", "IF", "TF":
+		return 40
+	case "U":
+		return 50
+	case "F":
+		return 60
+	case "V":
+		return 70
+	case "P":
+		return 80
+	case "TR":
+		return 90
+	default:
+		return 100
+	}
+}
+
+func runOrderObject(object sqlservermodels.DatabaseObject, file string, order int) sqlservermodels.RunOrderObject {
+	return sqlservermodels.RunOrderObject{
+		Order:    order,
+		Name:     qualifiedObjectName(object.Schema, object.Name),
+		File:     file,
+		Type:     object.TypeCode,
+		ObjectID: object.ID,
+		Schema:   object.Schema,
+	}
+}
+
+func runOrderObjectFromFile(directory string, file string, order int) sqlservermodels.RunOrderObject {
+	name := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+	return sqlservermodels.RunOrderObject{
+		Order: order,
+		Name:  name,
+		File:  file,
+		Type:  directory,
+	}
+}
+
 func runOrderFilePath(object sqlservermodels.DatabaseObject) string {
 	directory := "Procedures"
 	switch object.TypeCode {
+	case "U":
+		directory = "Tables"
+	case "F":
+		directory = "ForeignKeys"
 	case "V":
 		directory = "Views"
 	case "FN", "IF", "TF":
@@ -319,6 +416,8 @@ func runOrderFilePath(object sqlservermodels.DatabaseObject) string {
 		directory = "TableTypes"
 	case "SO":
 		directory = "Sequences"
+	case "SN":
+		directory = "Synonyms"
 	case "TR":
 		directory = "Triggers"
 	}
