@@ -1,3 +1,11 @@
+# Database Blueprint
+
+Database Blueprint exports database structure and data into readable `.sql`
+files that can be committed to Git and recreated later.
+
+Currently, SQL Server is supported. PostgreSQL, MySQL, and SQLite are planned
+and are already defined in the database type configuration.
+
 ## Install and Update (Linux)
 
 ```bash
@@ -10,6 +18,88 @@ Verify:
 
 ```bash
 blue
+```
+
+## Windows and macOS
+
+There is currently no automatic installer for Windows or macOS.
+
+Download or build the executable, then run it directly:
+
+Windows:
+
+```powershell
+.\blue.exe
+```
+
+macOS/Linux:
+
+```bash
+./blue
+```
+
+## Getting Started
+
+Create a connection:
+
+```bash
+blue add
+```
+
+View saved connections:
+
+```bash
+blue list
+```
+
+Test a connection:
+
+```bash
+blue test <connection-name>
+```
+
+Export the database:
+
+```bash
+blue script <connection-name>
+```
+
+This creates a folder named after the connection containing the database
+scripts, data, and `RunOrder.json`. The folder can be committed to Git.
+
+Recreate the database from the exported scripts:
+
+```bash
+blue create <connection-name>
+```
+
+The `create` command asks for confirmation before creating or overwriting the
+target database.
+
+## Useful Commands
+
+Edit a connection:
+
+```bash
+blue edit <connection-name>
+```
+
+Delete a connection:
+
+```bash
+blue delete <connection-name>
+```
+
+Script only the database schema:
+
+```bash
+blue script <connection-name> --schema-only
+```
+
+Script only the database data:
+
+```bash
+blue script <connection-name> --data-only
 ```
 
 ## Uninstall (Linux)
