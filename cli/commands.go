@@ -16,7 +16,7 @@ func Version(input models.CommandInput) {
 	fmt.Printf("%s %s\n", appinfo.Name, appinfo.Version)
 }
 
-func newVersionCommand() *cobra.Command {
+func VersionCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:     "version",
 		Short:   "Shows application version",
@@ -28,7 +28,7 @@ func newVersionCommand() *cobra.Command {
 	}
 }
 
-func newCompletionCommand(rootCmd *cobra.Command) *cobra.Command {
+func CompletionCommand(rootCmd *cobra.Command) *cobra.Command {
 	return &cobra.Command{
 		Use:     "completion [bash|zsh|fish|powershell]",
 		Short:   "Generate shell completion scripts",
@@ -51,7 +51,7 @@ func newCompletionCommand(rootCmd *cobra.Command) *cobra.Command {
 	}
 }
 
-func newListCommand() *cobra.Command {
+func ListCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:     "list",
 		Short:   "Lists database connections",
@@ -63,7 +63,7 @@ func newListCommand() *cobra.Command {
 	}
 }
 
-func newAddCommand() *cobra.Command {
+func AddCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:     "add",
 		Short:   "Add a database connection",
@@ -75,7 +75,7 @@ func newAddCommand() *cobra.Command {
 	}
 }
 
-func newEditCommand() *cobra.Command {
+func EditCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:     "edit <connection-name>",
 		Short:   "Edit a database connection",
@@ -87,7 +87,7 @@ func newEditCommand() *cobra.Command {
 	}
 }
 
-func newDeleteCommand() *cobra.Command {
+func DeleteCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:     "delete <connection-name>",
 		Short:   "Delete a database connection",
@@ -99,7 +99,7 @@ func newDeleteCommand() *cobra.Command {
 	}
 }
 
-func newTestCommand() *cobra.Command {
+func TestCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:     "test <connection-name>",
 		Short:   "Test the database connection",
@@ -111,9 +111,15 @@ func newTestCommand() *cobra.Command {
 	}
 }
 
-func newScriptCommand() *cobra.Command {
+func ScriptCommand() *cobra.Command {
 	var dataOnly bool
 	var schemaOnly bool
+
+	var server string
+	var port string
+	var database string
+	var user string
+	var password string
 
 	cmd := &cobra.Command{
 		Use:     "script <connection-name>",
@@ -124,6 +130,13 @@ func newScriptCommand() *cobra.Command {
 			scripting.Script(models.CommandInput{
 				RawArgs:   args,
 				Arguments: args,
+				StringFlags: map[string]string{
+					"server":   server,
+					"port":     port,
+					"database": database,
+					"user":     user,
+					"password": password,
+				},
 				Flags: map[string]bool{
 					"data-only":   dataOnly,
 					"schema-only": schemaOnly,
@@ -134,19 +147,27 @@ func newScriptCommand() *cobra.Command {
 
 	cmd.Flags().BoolVar(&dataOnly, "data-only", false, "Script data only")
 	cmd.Flags().BoolVar(&schemaOnly, "schema-only", false, "Script schema only")
+
+	cmd.Flags().StringVarP(&server, "server", "s", "", "Server override value")
+	cmd.Flags().StringVarP(&port, "port", "", "", "Port override value")
+	cmd.Flags().StringVarP(&database, "database", "d", "", "Database override value")
+	cmd.Flags().StringVarP(&user, "user", "u", "", "User override value")
+	cmd.Flags().StringVarP(&password, "password", "p", "", "Password override value")
+
 	cmd.MarkFlagsMutuallyExclusive("data-only", "schema-only")
 
 	return cmd
 }
 
 func emptyInput() models.CommandInput {
-	return models.CommandInput{Flags: map[string]bool{}}
+	return models.CommandInput{Flags: map[string]bool{}, StringFlags: map[string]string{}}
 }
 
 func inputFromArgs(args []string) models.CommandInput {
 	return models.CommandInput{
-		RawArgs:   args,
-		Arguments: args,
-		Flags:     map[string]bool{},
+		RawArgs:     args,
+		Arguments:   args,
+		Flags:       map[string]bool{},
+		StringFlags: map[string]string{},
 	}
 }

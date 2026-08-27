@@ -37,14 +37,14 @@ func newRootCommand() *cobra.Command {
 		&cobra.Group{ID: "database", Title: "Database Commands"},
 	)
 	rootCmd.AddCommand(
-		newVersionCommand(),
-		newCompletionCommand(rootCmd),
-		newListCommand(),
-		newAddCommand(),
-		newEditCommand(),
-		newDeleteCommand(),
-		newTestCommand(),
-		newScriptCommand(),
+		VersionCommand(),
+		CompletionCommand(rootCmd),
+		ListCommand(),
+		AddCommand(),
+		EditCommand(),
+		DeleteCommand(),
+		TestCommand(),
+		ScriptCommand(),
 	)
 
 	return rootCmd

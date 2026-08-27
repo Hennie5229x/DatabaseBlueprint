@@ -26,6 +26,13 @@ func Script(input models.CommandInput) {
 	// Flags
 	dataOnly := input.Flags["data-only"]
 	schemaOnly := input.Flags["schema-only"]
+
+	serverOveride := input.StringFlags["server"]
+	portOveride := input.StringFlags["port"]
+	databaseOveride := input.StringFlags["database"]
+	userOveride := input.StringFlags["user"]
+	passwordOveride := input.StringFlags["password"]
+
 	if dataOnly && schemaOnly {
 		fmt.Println("Cannot use --data-only and --schema-only together")
 		return
@@ -38,7 +45,27 @@ func Script(input models.CommandInput) {
 	}
 	directory = conn.Name
 
-	var yn bool = AskYesNo(fmt.Sprintf("Do you want to script %s?", Argument), true)
+	// Apply Overide values
+	if serverOveride != "" {
+		conn.Server = serverOveride
+	}
+	if portOveride != "" {
+		conn.Port = portOveride
+	}
+	if databaseOveride != "" {
+		conn.Database = databaseOveride
+	}
+	if userOveride != "" {
+		conn.User = userOveride
+	}
+	if passwordOveride != "" {
+		conn.Password = passwordOveride
+	}
+
+	var connectionDetails string = fmt.Sprintf("Server: %s\nPort: %s\nDatabase: %s\nUser: %s\n",
+		conn.Server, conn.Port, conn.Database, conn.User)
+
+	var yn bool = AskYesNo(fmt.Sprintf("%s\nDo you want to script %s?", connectionDetails, Argument), false)
 
 	if !yn {
 		return

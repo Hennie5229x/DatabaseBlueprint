@@ -215,27 +215,30 @@ func BuildRunOrderFile(outputDirectory string, orderedObjects []sqlservermodels.
 	runOrder := make(sqlservermodels.RunOrderFile, 0, len(exportedFiles))
 	addedFiles := make(map[string]struct{}, len(exportedFiles))
 
-	for _, directory := range []string{"Schemas", "DataTypes"} {
-		for _, file := range exportedFiles[directory] {
-			runOrder = append(runOrder, runOrderObjectFromFile(directory, file, len(runOrder)+1))
+	for _, directory := range runOrderDirectories() {
+		phaseFiles := exportedFiles[directory]
+		if len(phaseFiles) == 0 {
+			continue
+		}
+
+		phaseFileSet := make(map[string]struct{}, len(phaseFiles))
+		for _, file := range phaseFiles {
+			phaseFileSet[file] = struct{}{}
+		}
+
+		for _, orderedObject := range orderedObjects {
+			file := runOrderFilePath(orderedObject.DatabaseObject)
+			if _, exists := phaseFileSet[file]; !exists {
+				continue
+			}
+			if _, exists := addedFiles[file]; exists {
+				continue
+			}
+
+			runOrder = append(runOrder, runOrderObject(orderedObject.DatabaseObject, file, len(runOrder)+1))
 			addedFiles[file] = struct{}{}
 		}
-	}
 
-	for _, orderedObject := range orderedObjects {
-		file := runOrderFilePath(orderedObject.DatabaseObject)
-		if _, exists := addedFiles[file]; exists {
-			continue
-		}
-		if !exportedFileExists(exportedFiles, file) {
-			continue
-		}
-
-		runOrder = append(runOrder, runOrderObject(orderedObject.DatabaseObject, file, len(runOrder)+1))
-		addedFiles[file] = struct{}{}
-	}
-
-	for _, directory := range runOrderDirectories() {
 		for _, file := range exportedFiles[directory] {
 			if _, exists := addedFiles[file]; exists {
 				continue
@@ -330,17 +333,6 @@ func runOrderDirectories() []string {
 		"Procedures",
 		"Triggers",
 	}
-}
-
-func exportedFileExists(exportedFiles map[string][]string, file string) bool {
-	for _, files := range exportedFiles {
-		index := sort.SearchStrings(files, file)
-		if index < len(files) && files[index] == file {
-			return true
-		}
-	}
-
-	return false
 }
 
 func runOrderObjectLess(left *sqlservermodels.DatabaseObject, right *sqlservermodels.DatabaseObject) bool {
