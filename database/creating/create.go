@@ -69,7 +69,12 @@ func createSQLServer(conn models.Connection, directory string) error {
 		}
 	}
 
-	if err := database.SQLServerCreateDatabase(masterDB, conn.Database); err != nil {
+	metadata, err := loadDatabaseMetadata(directory)
+	if err != nil {
+		return err
+	}
+
+	if err := database.SQLServerCreateDatabase(masterDB, conn.Database, metadata.Collation); err != nil {
 		return err
 	}
 
@@ -97,6 +102,24 @@ func createSQLServer(conn models.Connection, directory string) error {
 	return nil
 }
 
+func loadDatabaseMetadata(directory string) (sqlservermodels.DatabaseMetadata, error) {
+	path := filepath.Join(directory, "Database.json")
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return sqlservermodels.DatabaseMetadata{}, nil
+		}
+		return sqlservermodels.DatabaseMetadata{}, err
+	}
+
+	var metadata sqlservermodels.DatabaseMetadata
+	if err := json.Unmarshal(contents, &metadata); err != nil {
+		return sqlservermodels.DatabaseMetadata{}, err
+	}
+
+	return metadata, nil
+}
+
 func executeRunOrder(db *gorm.DB, directory string) (int, error) {
 	runOrderPath := filepath.Join(directory, "RunOrder.json")
 	contents, err := os.ReadFile(runOrderPath)
@@ -121,7 +144,6 @@ func executeRunOrder(db *gorm.DB, directory string) (int, error) {
 	err = db.Transaction(func(tx *gorm.DB) error {
 		for index, item := range schemaItems {
 			schemaSpinner.Update(fmt.Sprintf("[%d/%d] %s", index+1, len(schemaItems), item.Name))
-			pauseForSpinner()
 
 			filePath := filepath.Join(directory, item.File)
 			contents, err := os.ReadFile(filePath)

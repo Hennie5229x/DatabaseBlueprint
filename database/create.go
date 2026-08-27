@@ -22,8 +22,33 @@ func SQLServerDropDatabase(db *gorm.DB, databaseName string) error {
 	return db.Exec(fmt.Sprintf("ALTER DATABASE %s SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE %s;", databaseIdentifier, databaseIdentifier)).Error
 }
 
-func SQLServerCreateDatabase(db *gorm.DB, databaseName string) error {
-	return db.Exec("CREATE DATABASE " + quoteSQLServerIdentifier(databaseName)).Error
+func SQLServerCreateDatabase(db *gorm.DB, databaseName string, collation string) error {
+	statement := "CREATE DATABASE " + quoteSQLServerIdentifier(databaseName)
+	if collation != "" {
+		if !validSQLServerCollation(collation) {
+			return fmt.Errorf("invalid SQL Server collation: %s", collation)
+		}
+		statement += " COLLATE " + collation
+	}
+
+	return db.Exec(statement).Error
+}
+
+func validSQLServerCollation(collation string) bool {
+	if collation == "" {
+		return false
+	}
+
+	for _, character := range collation {
+		if (character < 'a' || character > 'z') &&
+			(character < 'A' || character > 'Z') &&
+			(character < '0' || character > '9') &&
+			character != '_' {
+			return false
+		}
+	}
+
+	return true
 }
 
 func quoteSQLServerIdentifier(identifier string) string {

@@ -254,3 +254,7 @@ type Triggers struct {
 type Schemas struct {
 	Name string
 }
+
+type DatabaseMetadata struct {
+	Collation string `json:"collation"`
+}
