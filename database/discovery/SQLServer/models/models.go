@@ -24,6 +24,7 @@ type DefaultConstraint struct {
 
 type PrimaryKeyColumn struct {
 	ConstraintObjectID int
+	ConstraintName     string
 	IndexType          string
 	ColumnName         string
 	KeyOrdinal         int

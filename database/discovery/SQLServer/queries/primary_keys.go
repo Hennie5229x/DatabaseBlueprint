@@ -11,6 +11,7 @@ func SqlServerPrimaryKeys(db *gorm.DB, tableName string) []models.PrimaryKeyColu
 
 	err := db.Raw(`
 		SELECT		kc.object_id AS ConstraintObjectID,
+					kc.name AS ConstraintName,
 					CASE WHEN i.type = 1 THEN 'CLUSTERED' ELSE 'NONCLUSTERED' END AS IndexType,
 					c.name AS ColumnName,
 					ic.key_ordinal AS KeyOrdinal,

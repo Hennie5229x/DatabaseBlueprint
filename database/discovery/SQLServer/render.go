@@ -145,6 +145,9 @@ func sqlServerColumnDefinitions(columns []sqlserver_models.Column, defaultConstr
 		}
 
 		if constraint, ok := defaultConstraintByColumnID[column.ColumnID]; ok {
+			if constraint.ConstraintName != "" {
+				definition += " CONSTRAINT " + quoteSqlServerIdentifier(constraint.ConstraintName)
+			}
 			definition += " DEFAULT " + constraint.ConstraintValue
 		}
 
@@ -158,11 +161,11 @@ func sqlServerKeyDefinitions(primaryKeys []sqlserver_models.PrimaryKeyColumn, un
 	definitions := make([]string, 0)
 
 	for _, primaryKey := range groupPrimaryKeys(primaryKeys) {
-		definitions = append(definitions, sqlServerKeyConstraintDefinition("PRIMARY KEY", primaryKey.IndexType, primaryKey.Columns))
+		definitions = append(definitions, sqlServerKeyConstraintDefinition("PRIMARY KEY", primaryKey.ConstraintName, primaryKey.IndexType, primaryKey.Columns))
 	}
 
 	for _, uniqueConstraint := range groupUniqueConstraints(uniqueConstraints) {
-		definitions = append(definitions, sqlServerKeyConstraintDefinition("UNIQUE", uniqueConstraint.IndexType, uniqueConstraint.Columns))
+		definitions = append(definitions, sqlServerKeyConstraintDefinition("UNIQUE", "", uniqueConstraint.IndexType, uniqueConstraint.Columns))
 	}
 
 	return definitions
@@ -226,15 +229,20 @@ func sqlServerIndexDefinitions(schemaName string, tableName string, indexes []sq
 	return definitions
 }
 
-func sqlServerKeyConstraintDefinition(keyword string, indexType string, columns []orderedColumn) string {
+func sqlServerKeyConstraintDefinition(keyword string, constraintName string, indexType string, columns []orderedColumn) string {
 	keyColumns := make([]string, 0, len(columns))
 	for _, column := range columns {
 		keyColumns = append(keyColumns, "        "+sqlServerIndexedColumn(column.ColumnName, column.IsDescending))
 	}
 
+	constraint := keyword
+	if constraintName != "" {
+		constraint = "CONSTRAINT " + quoteSqlServerIdentifier(constraintName) + " " + constraint
+	}
+
 	return fmt.Sprintf(
 		"    %s %s\n    (\n%s\n    )",
-		keyword,
+		constraint,
 		indexType,
 		strings.Join(keyColumns, ",\n"),
 	)
@@ -341,8 +349,9 @@ type orderedColumn struct {
 }
 
 type keyConstraintGroup struct {
-	IndexType string
-	Columns   []orderedColumn
+	ConstraintName string
+	IndexType      string
+	Columns        []orderedColumn
 }
 
 type foreignKeyGroup struct {
@@ -377,7 +386,10 @@ func groupPrimaryKeys(primaryKeys []sqlserver_models.PrimaryKeyColumn) []keyCons
 	for _, primaryKey := range primaryKeys {
 		group := groupsByID[primaryKey.ConstraintObjectID]
 		if group == nil {
-			group = &keyConstraintGroup{IndexType: primaryKey.IndexType}
+			group = &keyConstraintGroup{
+				ConstraintName: primaryKey.ConstraintName,
+				IndexType:      primaryKey.IndexType,
+			}
 			groupsByID[primaryKey.ConstraintObjectID] = group
 			constraintIDs = append(constraintIDs, primaryKey.ConstraintObjectID)
 		}
