@@ -145,7 +145,7 @@ func sqlServerColumnDefinitions(columns []sqlserver_models.Column, defaultConstr
 		}
 
 		if constraint, ok := defaultConstraintByColumnID[column.ColumnID]; ok {
-			if constraint.ConstraintName != "" {
+			if constraint.ConstraintName != "" && !constraint.IsSystemNamed {
 				definition += " CONSTRAINT " + quoteSqlServerIdentifier(constraint.ConstraintName)
 			}
 			definition += " DEFAULT " + constraint.ConstraintValue
@@ -161,7 +161,11 @@ func sqlServerKeyDefinitions(primaryKeys []sqlserver_models.PrimaryKeyColumn, un
 	definitions := make([]string, 0)
 
 	for _, primaryKey := range groupPrimaryKeys(primaryKeys) {
-		definitions = append(definitions, sqlServerKeyConstraintDefinition("PRIMARY KEY", primaryKey.ConstraintName, primaryKey.IndexType, primaryKey.Columns))
+		constraintName := ""
+		if !primaryKey.IsSystemNamed {
+			constraintName = primaryKey.ConstraintName
+		}
+		definitions = append(definitions, sqlServerKeyConstraintDefinition("PRIMARY KEY", constraintName, primaryKey.IndexType, primaryKey.Columns))
 	}
 
 	for _, uniqueConstraint := range groupUniqueConstraints(uniqueConstraints) {
@@ -350,6 +354,7 @@ type orderedColumn struct {
 
 type keyConstraintGroup struct {
 	ConstraintName string
+	IsSystemNamed  bool
 	IndexType      string
 	Columns        []orderedColumn
 }
@@ -388,6 +393,7 @@ func groupPrimaryKeys(primaryKeys []sqlserver_models.PrimaryKeyColumn) []keyCons
 		if group == nil {
 			group = &keyConstraintGroup{
 				ConstraintName: primaryKey.ConstraintName,
+				IsSystemNamed:  primaryKey.IsSystemNamed,
 				IndexType:      primaryKey.IndexType,
 			}
 			groupsByID[primaryKey.ConstraintObjectID] = group

@@ -19,12 +19,14 @@ type DefaultConstraint struct {
 	ColumnID        int
 	ColumnName      string
 	ConstraintName  string
+	IsSystemNamed   bool
 	ConstraintValue string
 }
 
 type PrimaryKeyColumn struct {
 	ConstraintObjectID int
 	ConstraintName     string
+	IsSystemNamed      bool
 	IndexType          string
 	ColumnName         string
 	KeyOrdinal         int

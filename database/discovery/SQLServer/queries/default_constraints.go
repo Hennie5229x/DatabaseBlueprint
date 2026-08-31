@@ -13,6 +13,7 @@ func SqlServerDefaultConstraints(db *gorm.DB, tableName string) []models.Default
 		SELECT		dc.parent_column_id AS ColumnID,
 					c.name AS ColumnName,
 					dc.name AS ConstraintName,
+					dc.is_system_named AS IsSystemNamed,
 					dc.definition AS ConstraintValue
 		FROM 		sys.default_constraints dc
 		JOIN 		sys.columns c ON c.object_id = dc.parent_object_id
