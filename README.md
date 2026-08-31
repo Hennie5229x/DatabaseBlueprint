@@ -6,7 +6,7 @@ files that can be committed to Git and recreated later.
 Currently, SQL Server is supported. PostgreSQL, MySQL, and SQLite are planned
 and are already defined in the database type configuration.
 
-## Install and Update (Linux)
+## Install and Update (Linux and macOS)
 
 ```bash
 curl -fsSL \
@@ -20,9 +20,34 @@ Verify:
 blue
 ```
 
-## Windows and macOS
+The installer supports Linux `amd64` and macOS `arm64` (Apple Silicon). It
+installs `blue` to `~/.local/bin`. If that directory is not already in your
+`PATH`, add it to `~/.bashrc` or `~/.zshrc`:
 
-There is currently no automatic installer for Windows or macOS.
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+On macOS, Gatekeeper may block the unsigned binary. If that happens, run the
+`xattr` command printed by the installer.
+
+## Windows and Intel macOS
+
+Windows users can install the CLI from PowerShell. This installs the current
+user's copy without requiring Administrator access:
+
+```powershell
+irm https://raw.githubusercontent.com/Hennie5229x/DatabaseBlueprint/main/install.ps1 | iex
+```
+
+Restart PowerShell or Command Prompt after installation, then verify:
+
+```powershell
+blue
+```
+
+The Windows installer supports `amd64` PCs. Intel macOS users must download or
+build the executable manually.
 
 Download or build the executable, then run it directly:
 
@@ -102,10 +127,16 @@ Script only the database data:
 blue script <connection-name> --data-only
 ```
 
-## Uninstall (Linux)
+## Uninstall (Linux and macOS)
 
 ```bash
 curl -fsSL \
   https://raw.githubusercontent.com/Hennie5229x/DatabaseBlueprint/refs/heads/main/uninstall.sh |
   sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/Hennie5229x/DatabaseBlueprint/main/uninstall.ps1 | iex
 ```
