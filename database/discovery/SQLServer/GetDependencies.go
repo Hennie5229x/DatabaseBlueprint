@@ -253,30 +253,41 @@ func BuildRunOrderFile(outputDirectory string, orderedObjects []sqlservermodels.
 
 	runOrder := make(sqlservermodels.RunOrderFile, 0, len(exportedFiles))
 	addedFiles := make(map[string]struct{}, len(exportedFiles))
-	objectByFile := make(map[string]*sqlservermodels.DatabaseObject, len(objectGraph))
-	for _, object := range objectGraph {
-		objectByFile[runOrderFilePath(*object)] = object
+	for _, directory := range []string{"Schemas", "DataTypes"} {
+		for _, file := range exportedFiles[directory] {
+			runOrder = append(runOrder, runOrderObjectFromFile(directory, file, len(runOrder)+1))
+			addedFiles[file] = struct{}{}
+		}
 	}
 
-	for _, directory := range runOrderDirectories() {
-		phaseFiles, err := orderPhaseFiles(outputDirectory, exportedFiles[directory])
-		if err != nil {
-			return nil, err
+	exportedFileSet := make(map[string]struct{}, len(exportedFiles))
+	for _, files := range exportedFiles {
+		for _, file := range files {
+			exportedFileSet[file] = struct{}{}
 		}
-		if len(phaseFiles) == 0 {
+	}
+
+	for _, orderedObject := range orderedObjects {
+		file := runOrderFilePath(orderedObject.DatabaseObject)
+		if _, exists := addedFiles[file]; exists {
+			continue
+		}
+		if _, exists := exportedFileSet[file]; !exists {
 			continue
 		}
 
-		for _, file := range phaseFiles {
+		runOrder = append(runOrder, runOrderObject(orderedObject.DatabaseObject, file, len(runOrder)+1))
+		addedFiles[file] = struct{}{}
+	}
+
+	// Keep exported files that are not represented in the dependency graph.
+	for _, directory := range runOrderDirectories() {
+		for _, file := range exportedFiles[directory] {
 			if _, exists := addedFiles[file]; exists {
 				continue
 			}
 
-			if object := objectByFile[file]; object != nil {
-				runOrder = append(runOrder, runOrderObject(*object, file, len(runOrder)+1))
-			} else {
-				runOrder = append(runOrder, runOrderObjectFromFile(directory, file, len(runOrder)+1))
-			}
+			runOrder = append(runOrder, runOrderObjectFromFile(directory, file, len(runOrder)+1))
 			addedFiles[file] = struct{}{}
 		}
 	}
