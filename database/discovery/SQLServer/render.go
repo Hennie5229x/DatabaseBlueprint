@@ -161,18 +161,24 @@ func sqlServerKeyDefinitions(primaryKeys []sqlserver_models.PrimaryKeyColumn, un
 	definitions := make([]string, 0)
 
 	for _, primaryKey := range groupPrimaryKeys(primaryKeys) {
-		constraintName := ""
-		if !primaryKey.IsSystemNamed {
-			constraintName = primaryKey.ConstraintName
-		}
+		constraintName := sqlServerConstraintName(primaryKey.ConstraintName, primaryKey.IsSystemNamed)
 		definitions = append(definitions, sqlServerKeyConstraintDefinition("PRIMARY KEY", constraintName, primaryKey.IndexType, primaryKey.Columns))
 	}
 
 	for _, uniqueConstraint := range groupUniqueConstraints(uniqueConstraints) {
-		definitions = append(definitions, sqlServerKeyConstraintDefinition("UNIQUE", "", uniqueConstraint.IndexType, uniqueConstraint.Columns))
+		constraintName := sqlServerConstraintName(uniqueConstraint.ConstraintName, uniqueConstraint.IsSystemNamed)
+		definitions = append(definitions, sqlServerKeyConstraintDefinition("UNIQUE", constraintName, uniqueConstraint.IndexType, uniqueConstraint.Columns))
 	}
 
 	return definitions
+}
+
+func sqlServerConstraintName(name string, isSystemNamed bool) string {
+	if isSystemNamed {
+		return ""
+	}
+
+	return name
 }
 
 func sqlServerRuleDefinitions(checkConstraints []sqlserver_models.CheckConstraint) []string {
@@ -424,7 +430,11 @@ func groupUniqueConstraints(uniqueConstraints []sqlserver_models.UniqueConstrain
 	for _, uniqueConstraint := range uniqueConstraints {
 		group := groupsByID[uniqueConstraint.ConstraintObjectID]
 		if group == nil {
-			group = &keyConstraintGroup{IndexType: uniqueConstraint.IndexType}
+			group = &keyConstraintGroup{
+				ConstraintName: uniqueConstraint.ConstraintName,
+				IsSystemNamed:  uniqueConstraint.IsSystemNamed,
+				IndexType:      uniqueConstraint.IndexType,
+			}
 			groupsByID[uniqueConstraint.ConstraintObjectID] = group
 			constraintIDs = append(constraintIDs, uniqueConstraint.ConstraintObjectID)
 		}

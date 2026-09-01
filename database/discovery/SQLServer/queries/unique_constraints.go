@@ -11,6 +11,8 @@ func SqlServerUniqueConstraints(db *gorm.DB, tableName string) []models.UniqueCo
 
 	err := db.Raw(`
 		SELECT		kc.object_id AS ConstraintObjectID,
+					kc.name AS ConstraintName,
+					kc.is_system_named AS IsSystemNamed,
 					CASE WHEN i.type = 1 THEN 'CLUSTERED' ELSE 'NONCLUSTERED' END AS IndexType,
 					c.name AS ColumnName,
 					ic.key_ordinal AS KeyOrdinal,

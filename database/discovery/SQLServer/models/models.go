@@ -35,6 +35,8 @@ type PrimaryKeyColumn struct {
 
 type UniqueConstraintColumn struct {
 	ConstraintObjectID int
+	ConstraintName     string
+	IsSystemNamed      bool
 	IndexType          string
 	ColumnName         string
 	KeyOrdinal         int
