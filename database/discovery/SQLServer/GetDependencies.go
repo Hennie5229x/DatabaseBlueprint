@@ -1,6 +1,7 @@
 package sqlserver
 
 import (
+	"blueprint/cli/spinner"
 	sqlservermodels "blueprint/database/discovery/SQLServer/models"
 	queries "blueprint/database/discovery/SQLServer/queries"
 	"encoding/json"
@@ -14,9 +15,12 @@ import (
 )
 
 func GenerateRunOrder(db *gorm.DB, outputDirectory string, databaseName string) {
+	runOrderSpinner := spinner.New("Run Order", "Creating run order")
 	if err := generateRunOrder(db, outputDirectory, databaseName); err != nil {
+		runOrderSpinner.Stop("Failed")
 		panic(err)
 	}
+	runOrderSpinner.Stop("Run order created")
 }
 
 func generateRunOrder(db *gorm.DB, outputDirectory string, databaseName string) error {
@@ -65,10 +69,58 @@ func BuildObjectGraph(rows []sqlservermodels.DependencyRow) map[int]*sqlservermo
 }
 
 func AddFileDependencies(outputDirectory string, objects map[int]*sqlservermodels.DatabaseObject) error {
+	exportedFiles, err := exportedRunOrderFiles(outputDirectory)
+	if err != nil {
+		return err
+	}
+
 	objectsByFile := make(map[string]*sqlservermodels.DatabaseObject, len(objects))
-	matchers := make(map[int]sqlObjectMatcher, len(objects))
 	for _, object := range objects {
 		objectsByFile[runOrderFilePath(*object)] = object
+	}
+
+	// SQL Server metadata can omit valid references, especially for unresolved
+	// or unqualified names. Add exported objects so file matching can recover
+	// those dependency edges.
+	nextSyntheticID := -1
+	for _, directory := range runOrderDirectories() {
+		if directory == "Schemas" || directory == "DataTypes" {
+			continue
+		}
+
+		for _, file := range exportedFiles[directory] {
+			if _, exists := objectsByFile[file]; exists {
+				continue
+			}
+
+			fileObject := runOrderFileObjectFromPath(file)
+			if fileObject.Schema == "" || fileObject.Name == "" {
+				continue
+			}
+
+			for {
+				if _, exists := objects[nextSyntheticID]; !exists {
+					break
+				}
+				nextSyntheticID--
+			}
+
+			object := &sqlservermodels.DatabaseObject{
+				ID:        nextSyntheticID,
+				Schema:    fileObject.Schema,
+				Name:      fileObject.Name,
+				TypeCode:  runOrderTypeCode(directory),
+				Type:      directory,
+				DependsOn: make(map[int]struct{}),
+			}
+			objects[object.ID] = object
+			objectsByFile[file] = object
+			nextSyntheticID--
+		}
+	}
+
+	matchers := make(map[int]sqlObjectMatcher, len(objects))
+	for _, object := range objects {
 		matcher, err := newSQLObjectMatcher(object.Schema, object.Name)
 		if err != nil {
 			return err
@@ -98,6 +150,31 @@ func AddFileDependencies(outputDirectory string, objects map[int]*sqlservermodel
 	}
 
 	return nil
+}
+
+func runOrderTypeCode(directory string) string {
+	switch directory {
+	case "Tables":
+		return "U"
+	case "ForeignKeys":
+		return "F"
+	case "Views":
+		return "V"
+	case "Functions":
+		return "IF"
+	case "Procedures":
+		return "P"
+	case "TableTypes":
+		return "TT"
+	case "Sequences":
+		return "SO"
+	case "Synonyms":
+		return "SN"
+	case "Triggers":
+		return "TR"
+	default:
+		return ""
+	}
 }
 
 func BuildObjectDAG(rows []sqlservermodels.DependencyRow) map[int]*sqlservermodels.DatabaseObject {

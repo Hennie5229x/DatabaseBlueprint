@@ -2,6 +2,7 @@ package scripting
 
 import (
 	"blueprint/appinfo"
+	"blueprint/cli/spinner"
 	"blueprint/connections"
 	"blueprint/database"
 	discoverysqlserver "blueprint/database/discovery/SQLServer"
@@ -72,7 +73,12 @@ func Script(input models.CommandInput) {
 	}
 
 	startTime := time.Now()
-	clearScriptDirectory(directory)
+	cleanupSpinner := spinner.New("Cleanup", "Deleting previous scripts")
+	if err := clearScriptDirectory(directory); err != nil {
+		cleanupSpinner.Stop("Failed")
+		panic(err)
+	}
+	cleanupSpinner.Stop("Directory cleared")
 
 	db, _ := database.Connect(*conn)
 
