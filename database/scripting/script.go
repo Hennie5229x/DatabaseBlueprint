@@ -87,12 +87,14 @@ func Script(input models.CommandInput) {
 	switch conn.Type {
 	case models.SqlServer:
 		Script_SQLServer(db, conn.Database, dataOnly, schemaOnly)
-	case models.MySql:
-		Script_MySQL()
-	case models.PostgreSql:
-		Script_PostgreSql()
-	case models.SQLite:
-		Script_SQLite()
+		/*
+			case models.MySql:
+				Script_MySQL()
+			case models.PostgreSql:
+				Script_PostgreSql()
+			case models.SQLite:
+				Script_SQLite()
+		*/
 	}
 
 	fmt.Printf("\nTotal time: %.2fs\n", time.Since(startTime).Seconds())
