@@ -59,6 +59,7 @@ type ForeignKeyColumn struct {
 
 type CheckConstraint struct {
 	ConstraintObjectID int
+	ConstraintName     string
 	Definition         string
 }
 

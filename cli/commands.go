@@ -4,6 +4,7 @@ import (
 	"blueprint/appinfo"
 	"blueprint/connections"
 	connCrud "blueprint/connections/crud"
+	"blueprint/database/comparing"
 	"blueprint/database/creating"
 	"blueprint/database/scripting"
 	"blueprint/models"
@@ -199,6 +200,24 @@ func CreateCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&user, "user", "u", "", "User override value")
 	cmd.Flags().StringVarP(&password, "password", "p", "", "Password override value")
 
+	return cmd
+}
+
+func CompareCommand() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:               "compare <source-connection-name> <taget-connection-name>",
+		Short:             "Compare two databases and generate migration scripts",
+		Args:              cobra.ExactArgs(2),
+		ValidArgsFunction: connectionNameCompletion,
+		GroupID:           "database",
+		Run: func(cmd *cobra.Command, args []string) {
+			comparing.Compare(models.CommandInput{
+				RawArgs:   args,
+				Arguments: args,
+			})
+		},
+	}
 	return cmd
 }
 
