@@ -4,6 +4,7 @@ import (
 	"blueprint/connections"
 	"blueprint/database"
 	sqlserverComparing "blueprint/database/comparing/SQLServer"
+	"blueprint/database/scripting"
 	"blueprint/models"
 	"fmt"
 	"path/filepath"
@@ -27,6 +28,24 @@ func Compare(input models.CommandInput) {
 		return
 	}
 
+	outputPath := filepath.Join("Migrations", sourceArg+"-to-"+targetArg+".sql")
+	connectionDetails := fmt.Sprintf(
+		"Source: %s\nServer: %s\nPort: %s\nDatabase: %s\nUser: %s\n\nTarget: %s\nServer: %s\nPort: %s\nDatabase: %s\nUser: %s",
+		sourceArg,
+		source_conn.Server,
+		source_conn.Port,
+		source_conn.Database,
+		source_conn.User,
+		targetArg,
+		target_conn.Server,
+		target_conn.Port,
+		target_conn.Database,
+		target_conn.User,
+	)
+	if !scripting.AskYesNo(fmt.Sprintf("%s\n\nDo you want to generate a migration from %s to %s?\nOutput: %s", connectionDetails, sourceArg, targetArg, outputPath), false) {
+		return
+	}
+
 	if source_conn.Type != target_conn.Type {
 		fmt.Println("Source and Target database type not the same!")
 	}
@@ -41,7 +60,6 @@ func Compare(input models.CommandInput) {
 	switch source_conn.Type {
 
 	case models.SqlServer:
-		outputPath := filepath.Join("Migrations", sourceArg+"-to-"+targetArg+".sql")
 		sqlserverComparing.Init(db_source, db_target, outputPath)
 	default:
 		fmt.Printf("Compare is not supported for %s\n", source_conn.Type)

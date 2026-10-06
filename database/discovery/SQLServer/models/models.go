@@ -60,6 +60,7 @@ type ForeignKeyColumn struct {
 type CheckConstraint struct {
 	ConstraintObjectID int
 	ConstraintName     string
+	IsSystemNamed      bool
 	Definition         string
 }
 

@@ -27,7 +27,9 @@ func GenerateMigration(dbSource *gorm.DB, dbTarget *gorm.DB, outputPath string) 
 
 	addObjectMigrations(&statements, dbSource, dbTarget)
 	addTableMigrations(&statements, dbSource, dbTarget)
-	addColumnMigrationTODOs(&statements, dbSource, dbTarget)
+	addColumnMigrations(&statements, dbSource, dbTarget)
+	addDefaultConstraintMigrations(&statements, dbSource, dbTarget)
+	addConstraintMigrations(&statements, dbSource, dbTarget)
 	addForeignKeyMigrations(&statements, dbSource, dbTarget)
 
 	sort.SliceStable(statements, func(i, j int) bool {
@@ -48,9 +50,11 @@ func GenerateMigration(dbSource *gorm.DB, dbTarget *gorm.DB, outputPath string) 
 			if index > 0 {
 				output.WriteString("\nGO\n\n")
 			}
-			output.WriteString("-- ")
-			output.WriteString(statement.key)
-			output.WriteString("\n")
+			if !isModuleMigration(statement.key) {
+				output.WriteString("-- ")
+				output.WriteString(statement.key)
+				output.WriteString("\n")
+			}
 			output.WriteString(strings.TrimSpace(statement.sql))
 			output.WriteString("\n")
 		}
@@ -65,6 +69,13 @@ func GenerateMigration(dbSource *gorm.DB, dbTarget *gorm.DB, outputPath string) 
 
 	fmt.Printf("Migration script written to %s\n", outputPath)
 	return nil
+}
+
+func isModuleMigration(key string) bool {
+	return strings.HasPrefix(key, "View ") ||
+		strings.HasPrefix(key, "Function ") ||
+		strings.HasPrefix(key, "Procedure ") ||
+		strings.HasPrefix(key, "Trigger ")
 }
 
 func addObjectMigrations(statements *[]migrationStatement, dbSource *gorm.DB, dbTarget *gorm.DB) {
@@ -157,7 +168,9 @@ func addDefinitionMigrations(statements *[]migrationStatement, dbSource *gorm.DB
 		sqlserverQueries.SqlServerViews(*dbSource),
 		sqlserverQueries.SqlServerViews(*dbTarget),
 		func(value sqlserverModels.Views) string { return value.Schema + "." + value.View },
-		func(source, target sqlserverModels.Views) bool { return source.Definition == target.Definition },
+		func(source, target sqlserverModels.Views) bool {
+			return definitionsEqual(source.Definition, target.Definition)
+		},
 	)
 	for _, view := range views {
 		key := view.Schema + "." + view.View
@@ -168,7 +181,9 @@ func addDefinitionMigrations(statements *[]migrationStatement, dbSource *gorm.DB
 		sqlserverQueries.SqlServerFunctions(dbSource),
 		sqlserverQueries.SqlServerFunctions(dbTarget),
 		func(value sqlserverModels.Functions) string { return value.Schema + "." + value.Name },
-		func(source, target sqlserverModels.Functions) bool { return source.Definition == target.Definition },
+		func(source, target sqlserverModels.Functions) bool {
+			return definitionsEqual(source.Definition, target.Definition)
+		},
 	)
 	for _, function := range functions {
 		key := function.Schema + "." + function.Name
@@ -179,7 +194,9 @@ func addDefinitionMigrations(statements *[]migrationStatement, dbSource *gorm.DB
 		sqlserverQueries.SqlServerProcedures(dbSource),
 		sqlserverQueries.SqlServerProcedures(dbTarget),
 		func(value sqlserverModels.Procedures) string { return value.Schema + "." + value.Name },
-		func(source, target sqlserverModels.Procedures) bool { return source.Definition == target.Definition },
+		func(source, target sqlserverModels.Procedures) bool {
+			return definitionsEqual(source.Definition, target.Definition)
+		},
 	)
 	for _, procedure := range procedures {
 		key := procedure.Schema + "." + procedure.Name
@@ -191,7 +208,7 @@ func addDefinitionMigrations(statements *[]migrationStatement, dbSource *gorm.DB
 		sqlserverQueries.SqlServerTriggers(dbTarget),
 		func(value sqlserverModels.Triggers) string { return value.SchemaName + "." + value.TriggerName },
 		func(source, target sqlserverModels.Triggers) bool {
-			return source.Definition == target.Definition &&
+			return definitionsEqual(source.Definition, target.Definition) &&
 				source.IsInsteadOf == target.IsInsteadOf &&
 				source.IsDisabled == target.IsDisabled &&
 				source.IsNotForReplication == target.IsNotForReplication
@@ -199,7 +216,17 @@ func addDefinitionMigrations(statements *[]migrationStatement, dbSource *gorm.DB
 	)
 	for _, trigger := range triggers {
 		key := trigger.SchemaName + "." + trigger.TriggerName
-		*statements = append(*statements, migrationStatement{order: 110, key: "Trigger " + key, sql: discoverySQLServer.BuildTriggerScript(trigger)})
+		sql := alterDefinition(trigger.Definition)
+		if trigger.IsDisabled {
+			sql += fmt.Sprintf(
+				"\n\nDISABLE TRIGGER %s.%s ON %s.%s;",
+				quoteIdentifier(trigger.SchemaName),
+				quoteIdentifier(trigger.TriggerName),
+				quoteIdentifier(trigger.TableSchemaName),
+				quoteIdentifier(trigger.TableName),
+			)
+		}
+		*statements = append(*statements, migrationStatement{order: 110, key: "Trigger " + key, sql: sql})
 	}
 }
 
@@ -216,7 +243,7 @@ func addTableMigrations(statements *[]migrationStatement, dbSource *gorm.DB, dbT
 	}
 }
 
-func addColumnMigrationTODOs(statements *[]migrationStatement, dbSource *gorm.DB, dbTarget *gorm.DB) {
+func addColumnMigrations(statements *[]migrationStatement, dbSource *gorm.DB, dbTarget *gorm.DB) {
 	sourceTables := sqlserverQueries.SqlServerTables(*dbSource)
 	targetTables := sqlserverQueries.SqlServerTables(*dbTarget)
 	targetTableMap := make(map[string]struct{}, len(targetTables))
@@ -232,55 +259,262 @@ func addColumnMigrationTODOs(statements *[]migrationStatement, dbSource *gorm.DB
 
 		sourceColumns := sqlserverQueries.SqlServerColumns(dbSource, tableKey)
 		targetColumns := sqlserverQueries.SqlServerColumns(dbTarget, tableKey)
-		key := func(value sqlserverModels.Column) string { return value.ColumnName }
-		equal := func(source, target sqlserverModels.Column) bool { return reflect.DeepEqual(source, target) }
+		targetColumnMap := make(map[string]sqlserverModels.Column, len(targetColumns))
+		for _, column := range targetColumns {
+			targetColumnMap[column.ColumnName] = column
+		}
+		defaultConstraints := sqlserverQueries.SqlServerDefaultConstraints(dbSource, tableKey)
+		defaultsByColumnID := make(map[int]sqlserverModels.DefaultConstraint, len(defaultConstraints))
+		for _, constraint := range defaultConstraints {
+			defaultsByColumnID[constraint.ColumnID] = constraint
+		}
 
-		for _, column := range objectDifferences(sourceColumns, targetColumns, key, equal) {
+		for _, column := range sourceColumns {
+			targetColumn, exists := targetColumnMap[column.ColumnName]
+			if !exists {
+				*statements = append(*statements, migrationStatement{
+					order: 55,
+					key:   "Column " + tableKey + "." + column.ColumnName,
+					sql:   addColumnSQL(table, column, defaultsByColumnID[column.ColumnID]),
+				})
+				continue
+			}
+
+			if reflect.DeepEqual(column, targetColumn) {
+				continue
+			}
+
+			if !canAlterColumn(column, targetColumn) {
+				*statements = append(*statements, migrationStatement{
+					order: 55,
+					key:   "Column " + tableKey + "." + column.ColumnName,
+					sql:   "-- TODO: Generate a safe ALTER TABLE for this identity or computed column change.",
+				})
+				continue
+			}
+
 			*statements = append(*statements, migrationStatement{
-				order: 130,
+				order: 55,
 				key:   "Column " + tableKey + "." + column.ColumnName,
-				sql:   "-- TODO: Generate ALTER TABLE for this changed column.",
+				sql:   alterColumnSQL(table, column),
 			})
 		}
 	}
 }
 
-func addForeignKeyMigrations(statements *[]migrationStatement, dbSource *gorm.DB, dbTarget *gorm.DB) {
-	differences := objectDifferences(
-		sqlserverQueries.SqlServerForeignKeys(dbSource),
-		sqlserverQueries.SqlServerForeignKeys(dbTarget),
-		func(value sqlserverModels.ForeignKeyColumn) string {
-			return value.ParentSchema + "." + value.ParentTable + "." + value.ForeignKeyName + "." + fmt.Sprint(value.KeyOrdinal)
-		},
-		func(source, target sqlserverModels.ForeignKeyColumn) bool {
-			return source.ForeignKeyName == target.ForeignKeyName &&
-				source.ParentSchema == target.ParentSchema &&
-				source.ParentTable == target.ParentTable &&
-				source.ColumnName == target.ColumnName &&
-				source.KeyOrdinal == target.KeyOrdinal &&
-				source.ReferencedSchema == target.ReferencedSchema &&
-				source.ReferencedTable == target.ReferencedTable &&
-				source.ReferencedColumn == target.ReferencedColumn &&
-				source.DeleteAction == target.DeleteAction &&
-				source.UpdateAction == target.UpdateAction
-		},
-	)
+func addDefaultConstraintMigrations(statements *[]migrationStatement, dbSource *gorm.DB, dbTarget *gorm.DB) {
+	compareExistingTablesForMigration(dbSource, dbTarget, func(table discoveryModels.Tables, tableKey string) {
+		sourceDefaults := sqlserverQueries.SqlServerDefaultConstraints(dbSource, tableKey)
+		targetDefaults := sqlserverQueries.SqlServerDefaultConstraints(dbTarget, tableKey)
+		targetColumns := sqlserverQueries.SqlServerColumns(dbTarget, tableKey)
+		targetColumnMap := make(map[string]struct{}, len(targetColumns))
+		for _, column := range targetColumns {
+			targetColumnMap[column.ColumnName] = struct{}{}
+		}
+		targetByColumn := make(map[string]sqlserverModels.DefaultConstraint, len(targetDefaults))
+		for _, constraint := range targetDefaults {
+			targetByColumn[constraint.ColumnName] = constraint
+		}
 
-	grouped := make(map[string][]sqlserverModels.ForeignKeyColumn)
-	for _, foreignKey := range differences {
-		grouped[foreignKey.ParentSchema+"."+foreignKey.ParentTable+"."+foreignKey.ForeignKeyName] = append(grouped[foreignKey.ParentSchema+"."+foreignKey.ParentTable+"."+foreignKey.ForeignKeyName], foreignKey)
+		for _, source := range sourceDefaults {
+			if _, exists := targetColumnMap[source.ColumnName]; !exists {
+				continue
+			}
+			target, exists := targetByColumn[source.ColumnName]
+			if exists && source.ConstraintValue == target.ConstraintValue &&
+				source.IsSystemNamed == target.IsSystemNamed &&
+				(source.IsSystemNamed || source.ConstraintName == target.ConstraintName) {
+				continue
+			}
+
+			sql := addDefaultConstraintSQL(table, source)
+			if exists {
+				sql = fmt.Sprintf("ALTER TABLE %s.%s DROP CONSTRAINT %s;\n%s", quoteIdentifier(table.Schema), quoteIdentifier(table.Name), quoteIdentifier(target.ConstraintName), sql)
+			}
+
+			*statements = append(*statements, migrationStatement{
+				order: 60,
+				key:   "Default " + tableKey + "." + source.ColumnName,
+				sql:   sql,
+			})
+		}
+	})
+}
+
+func compareExistingTablesForMigration(dbSource *gorm.DB, dbTarget *gorm.DB, compare func(discoveryModels.Tables, string)) {
+	sourceTables := sqlserverQueries.SqlServerTables(*dbSource)
+	targetTables := sqlserverQueries.SqlServerTables(*dbTarget)
+	targetTableMap := make(map[string]struct{}, len(targetTables))
+	for _, table := range targetTables {
+		targetTableMap[table.Schema+"."+table.Name] = struct{}{}
 	}
 
-	keys := make([]string, 0, len(grouped))
-	for key := range grouped {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		for _, definition := range discoverySQLServer.GenerateForeignKeys(grouped[key]) {
-			*statements = append(*statements, migrationStatement{order: 120, key: "Foreign key " + key, sql: definition})
+	for _, table := range sourceTables {
+		tableKey := table.Schema + "." + table.Name
+		if _, exists := targetTableMap[tableKey]; exists {
+			compare(table, tableKey)
 		}
 	}
+}
+
+func addColumnSQL(table discoveryModels.Tables, column sqlserverModels.Column, defaultConstraint sqlserverModels.DefaultConstraint) string {
+	definition := columnDefinitionSQL(column, defaultConstraint)
+	return fmt.Sprintf("ALTER TABLE %s.%s ADD %s;", quoteIdentifier(table.Schema), quoteIdentifier(table.Name), definition)
+}
+
+func alterColumnSQL(table discoveryModels.Tables, column sqlserverModels.Column) string {
+	nullability := "NOT NULL"
+	if column.IsNullable {
+		nullability = "NULL"
+	}
+	return fmt.Sprintf(
+		"ALTER TABLE %s.%s ALTER COLUMN %s %s %s;",
+		quoteIdentifier(table.Schema),
+		quoteIdentifier(table.Name),
+		quoteIdentifier(column.ColumnName),
+		columnDataTypeSQL(column),
+		nullability,
+	)
+}
+
+func addDefaultConstraintSQL(table discoveryModels.Tables, constraint sqlserverModels.DefaultConstraint) string {
+	constraintName := ""
+	if constraint.ConstraintName != "" && !constraint.IsSystemNamed {
+		constraintName = " CONSTRAINT " + quoteIdentifier(constraint.ConstraintName)
+	}
+	return fmt.Sprintf(
+		"ALTER TABLE %s.%s ADD%s DEFAULT %s FOR %s;",
+		quoteIdentifier(table.Schema),
+		quoteIdentifier(table.Name),
+		constraintName,
+		constraint.ConstraintValue,
+		quoteIdentifier(constraint.ColumnName),
+	)
+}
+
+func columnDefinitionSQL(column sqlserverModels.Column, defaultConstraint sqlserverModels.DefaultConstraint) string {
+	if column.ComputedDefinition != "" {
+		definition := fmt.Sprintf("%s AS %s", quoteIdentifier(column.ColumnName), column.ComputedDefinition)
+		if column.IsPersisted {
+			definition += " PERSISTED"
+		}
+		return definition
+	}
+
+	nullability := "NOT NULL"
+	if column.IsNullable {
+		nullability = "NULL"
+	}
+	definition := fmt.Sprintf("%s %s", quoteIdentifier(column.ColumnName), columnDataTypeSQL(column))
+	if column.IsIdentity {
+		definition += fmt.Sprintf(" IDENTITY(%s,%s)", identityValue(column.IdentitySeed, "1"), identityValue(column.IdentityIncrement, "1"))
+	}
+	definition += " " + nullability
+	if defaultConstraint.ConstraintValue != "" {
+		if defaultConstraint.ConstraintName != "" && !defaultConstraint.IsSystemNamed {
+			definition += " CONSTRAINT " + quoteIdentifier(defaultConstraint.ConstraintName)
+		}
+		definition += " DEFAULT " + defaultConstraint.ConstraintValue
+	}
+	return definition
+}
+
+func columnDataTypeSQL(column sqlserverModels.Column) string {
+	dataType := strings.ToUpper(column.DataType)
+	switch strings.ToLower(column.DataType) {
+	case "varchar", "char", "varbinary", "binary":
+		if column.MaxLength == -1 {
+			return dataType + "(MAX)"
+		}
+		return fmt.Sprintf("%s(%d)", dataType, column.MaxLength)
+	case "nvarchar", "nchar":
+		if column.MaxLength == -1 {
+			return dataType + "(MAX)"
+		}
+		return fmt.Sprintf("%s(%d)", dataType, column.MaxLength/2)
+	case "decimal", "numeric":
+		return fmt.Sprintf("%s(%d,%d)", dataType, column.Precision, column.Scale)
+	case "datetime2", "datetimeoffset", "time":
+		return fmt.Sprintf("%s(%d)", dataType, column.Scale)
+	case "timestamp":
+		return "ROWVERSION"
+	default:
+		return dataType
+	}
+}
+
+func identityValue(value string, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func canAlterColumn(source sqlserverModels.Column, target sqlserverModels.Column) bool {
+	return source.IsIdentity == target.IsIdentity &&
+		!source.IsIdentity && !target.IsIdentity &&
+		source.ComputedDefinition == "" && target.ComputedDefinition == ""
+}
+
+func addForeignKeyMigrations(statements *[]migrationStatement, dbSource *gorm.DB, dbTarget *gorm.DB) {
+	source := groupForeignKeys(sqlserverQueries.SqlServerForeignKeys(dbSource))
+	target := groupForeignKeys(sqlserverQueries.SqlServerForeignKeys(dbTarget))
+
+	for key, sourceRows := range source {
+		targetRows, exists := target[key]
+		if exists && foreignKeyRowsEqual(sourceRows, targetRows) {
+			continue
+		}
+
+		definitions := discoverySQLServer.GenerateForeignKeys(sourceRows)
+		if exists {
+			definitions = append([]string{dropForeignKeySQL(targetRows[0])}, definitions...)
+		}
+
+		*statements = append(*statements, migrationStatement{
+			order: 120,
+			key:   "Foreign key " + key,
+			sql:   strings.Join(definitions, "\n"),
+		})
+	}
+}
+
+func groupForeignKeys(rows []sqlserverModels.ForeignKeyColumn) map[string][]sqlserverModels.ForeignKeyColumn {
+	return groupRows(rows, func(row sqlserverModels.ForeignKeyColumn) string {
+		return row.ParentSchema + "." + row.ParentTable + "." + row.ForeignKeyName
+	})
+}
+
+func foreignKeyRowsEqual(source []sqlserverModels.ForeignKeyColumn, target []sqlserverModels.ForeignKeyColumn) bool {
+	if len(source) != len(target) {
+		return false
+	}
+	for index := range source {
+		left := source[index]
+		right := target[index]
+		if left.ForeignKeyName != right.ForeignKeyName ||
+			left.ParentSchema != right.ParentSchema ||
+			left.ParentTable != right.ParentTable ||
+			left.ColumnName != right.ColumnName ||
+			left.KeyOrdinal != right.KeyOrdinal ||
+			left.ReferencedSchema != right.ReferencedSchema ||
+			left.ReferencedTable != right.ReferencedTable ||
+			left.ReferencedColumn != right.ReferencedColumn ||
+			left.DeleteAction != right.DeleteAction ||
+			left.UpdateAction != right.UpdateAction {
+			return false
+		}
+	}
+	return true
+}
+
+func dropForeignKeySQL(foreignKey sqlserverModels.ForeignKeyColumn) string {
+	return fmt.Sprintf(
+		"ALTER TABLE %s.%s DROP CONSTRAINT %s;",
+		quoteIdentifier(foreignKey.ParentSchema),
+		quoteIdentifier(foreignKey.ParentTable),
+		quoteIdentifier(foreignKey.ForeignKeyName),
+	)
 }
 
 func objectDifferences[T any](source []T, target []T, key func(T) string, equal func(T, T) bool) []T {
@@ -352,6 +586,19 @@ func alterDefinition(definition string) string {
 		return "CREATE OR ALTER " + strings.TrimSpace(definition[len("CREATE "):])
 	}
 	return "-- Unable to convert definition to CREATE OR ALTER:\n-- " + strings.ReplaceAll(definition, "\n", "\n-- ")
+}
+
+func definitionsEqual(source string, target string) bool {
+	return normalizeDefinition(source) == normalizeDefinition(target)
+}
+
+func normalizeDefinition(definition string) string {
+	definition = strings.TrimSpace(definition)
+	upper := strings.ToUpper(definition)
+	if strings.HasPrefix(upper, "CREATE OR ALTER ") {
+		return "CREATE " + definition[len("CREATE OR ALTER "):]
+	}
+	return definition
 }
 
 func quoteIdentifier(value string) string {

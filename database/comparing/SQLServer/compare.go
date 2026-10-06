@@ -1,6 +1,7 @@
 package sqlserver
 
 import (
+	"blueprint/cli/spinner"
 	sqlserverModels "blueprint/database/discovery/SQLServer/models"
 	sqlserverQueries "blueprint/database/discovery/SQLServer/queries"
 	discoveryModels "blueprint/database/discovery/models"
@@ -10,32 +11,63 @@ import (
 	"gorm.io/gorm"
 )
 
+var activeComparison *comparisonSummary
+
 func Init(dbSource *gorm.DB, dbTarget *gorm.DB, outputPath string) {
-	compareSchemas(dbSource, dbTarget)
-	compareUserDefinedTypes(dbSource, dbTarget)
-	compareTableTypes(dbSource, dbTarget)
-	compareTableTypeColumns(dbSource, dbTarget)
-	compareTableTypeKeys(dbSource, dbTarget)
-	compareTableTypeChecks(dbSource, dbTarget)
-	compareTableTypeIndexes(dbSource, dbTarget)
-	compareSequences(dbSource, dbTarget)
-	compareSynonyms(dbSource, dbTarget)
-	compareTables(dbSource, dbTarget)
-	compareColumns(dbSource, dbTarget)
-	compareDefaultConstraints(dbSource, dbTarget)
-	comparePrimaryKeys(dbSource, dbTarget)
-	compareUniqueConstraints(dbSource, dbTarget)
-	compareCheckConstraints(dbSource, dbTarget)
-	compareIndexes(dbSource, dbTarget)
-	compareForeignKeys(dbSource, dbTarget)
-	compareViews(dbSource, dbTarget)
-	compareFunctions(dbSource, dbTarget)
-	compareProcedures(dbSource, dbTarget)
-	compareTriggers(dbSource, dbTarget)
+	comparison := newComparisonSummary()
+	activeComparison = comparison
+	defer func() { activeComparison = nil }()
+
+	compareWithSpinner(comparison, "Schemas", "Schema", func() { compareSchemas(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "User Types", "User-defined type", func() { compareUserDefinedTypes(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Table Types", "Table type", func() { compareTableTypes(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Type Columns", "Table type column", func() { compareTableTypeColumns(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Type Keys", "Table type key", func() { compareTableTypeKeys(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Type Checks", "Table type check", func() { compareTableTypeChecks(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Type Indexes", "Table type index", func() { compareTableTypeIndexes(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Sequences", "Sequence", func() { compareSequences(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Synonyms", "Synonym", func() { compareSynonyms(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Tables", "Table", func() { compareTables(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Columns", "Column", func() { compareColumns(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Defaults", "Default constraint", func() { compareDefaultConstraints(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Primary Keys", "Primary key", func() { comparePrimaryKeys(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Unique Constraints", "Unique constraint", func() { compareUniqueConstraints(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Check Constraints", "Check constraint", func() { compareCheckConstraints(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Indexes", "Index", func() { compareIndexes(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Foreign Keys", "Foreign key", func() { compareForeignKeys(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Views", "View", func() { compareViews(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Functions", "Function", func() { compareFunctions(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Procedures", "Procedure", func() { compareProcedures(dbSource, dbTarget) })
+	compareWithSpinner(comparison, "Triggers", "Trigger", func() { compareTriggers(dbSource, dbTarget) })
 
 	if err := GenerateMigration(dbSource, dbTarget, outputPath); err != nil {
 		fmt.Printf("Failed to generate migration script: %v\n", err)
 	}
+}
+
+type comparisonSummary struct {
+	changes map[string]map[string]struct{}
+}
+
+func newComparisonSummary() *comparisonSummary {
+	return &comparisonSummary{changes: make(map[string]map[string]struct{})}
+}
+
+func (summary *comparisonSummary) record(objectType string, key string) {
+	if summary.changes[objectType] == nil {
+		summary.changes[objectType] = make(map[string]struct{})
+	}
+	summary.changes[objectType][key] = struct{}{}
+}
+
+func (summary *comparisonSummary) count(objectType string) int {
+	return len(summary.changes[objectType])
+}
+
+func compareWithSpinner(summary *comparisonSummary, label string, objectType string, compare func()) {
+	comparisonSpinner := spinner.New(label, "Comparing")
+	compare()
+	comparisonSpinner.Stop(fmt.Sprintf("%s : %d changes", label, summary.count(objectType)))
 }
 
 func compareSchemas(dbSource *gorm.DB, dbTarget *gorm.DB) {
@@ -69,7 +101,7 @@ func compareViews(dbSource *gorm.DB, dbTarget *gorm.DB) {
 		sqlserverQueries.SqlServerViews(*dbTarget),
 		func(view sqlserverModels.Views) string { return view.Schema + "." + view.View },
 		func(source, target sqlserverModels.Views) bool {
-			return source.Definition == target.Definition
+			return definitionsEqual(source.Definition, target.Definition)
 		},
 	)
 }
@@ -83,7 +115,7 @@ func compareFunctions(dbSource *gorm.DB, dbTarget *gorm.DB) {
 			return function.Schema + "." + function.Name
 		},
 		func(source, target sqlserverModels.Functions) bool {
-			return source.Definition == target.Definition
+			return definitionsEqual(source.Definition, target.Definition)
 		},
 	)
 }
@@ -97,7 +129,7 @@ func compareProcedures(dbSource *gorm.DB, dbTarget *gorm.DB) {
 			return procedure.Schema + "." + procedure.Name
 		},
 		func(source, target sqlserverModels.Procedures) bool {
-			return source.Definition == target.Definition
+			return definitionsEqual(source.Definition, target.Definition)
 		},
 	)
 }
@@ -111,7 +143,7 @@ func compareTriggers(dbSource *gorm.DB, dbTarget *gorm.DB) {
 			return trigger.SchemaName + "." + trigger.TriggerName
 		},
 		func(source, target sqlserverModels.Triggers) bool {
-			return source.Definition == target.Definition &&
+			return definitionsEqual(source.Definition, target.Definition) &&
 				source.IsInsteadOf == target.IsInsteadOf &&
 				source.IsDisabled == target.IsDisabled &&
 				source.IsNotForReplication == target.IsNotForReplication
@@ -487,9 +519,24 @@ func compareObjects[T any](
 		targetObject, found := targetMap[objectKey]
 
 		if !found {
-			fmt.Println(objectType+" not found:", objectKey)
+			if activeComparison != nil {
+				activeComparison.record(objectType, objectKey)
+			}
 		} else if !equal(sourceObject, targetObject) {
-			fmt.Println(objectType+" changed:", objectKey)
+			if activeComparison != nil {
+				activeComparison.record(objectType, objectKey)
+			}
+		}
+	}
+
+	sourceMap := make(map[string]struct{}, len(sourceObjects))
+	for _, sourceObject := range sourceObjects {
+		sourceMap[key(sourceObject)] = struct{}{}
+	}
+	for _, targetObject := range targetObjects {
+		objectKey := key(targetObject)
+		if _, found := sourceMap[objectKey]; !found && activeComparison != nil {
+			activeComparison.record(objectType, objectKey)
 		}
 	}
 }

@@ -12,6 +12,7 @@ func SqlServerCheckConstraints(db *gorm.DB, tableName string) []models.CheckCons
 	err := db.Raw(`
 		SELECT		cc.object_id AS ConstraintObjectID,
 					cc.name AS ConstraintName,
+					cc.is_system_named AS IsSystemNamed,
 					cc.definition AS Definition
 		FROM 		sys.check_constraints cc
 		WHERE 		cc.parent_object_id = OBJECT_ID(?, 'U')
